@@ -1,0 +1,99 @@
+@import "tailwindcss";
+@import "@portfolio/ui/theme.css";
+@source "../../packages/ui/src";
+@source "../packages/ui/src";
+
+body { font-variant-numeric: tabular-nums; }
+html { scroll-padding-top: 10rem; }
+main :is(h1, h2, h3) { text-wrap: balance; }
+button, a, input, select, summary { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--app-focus); outline-offset: 4px; }
+button, a, input, select { transition: background-color 160ms ease, border-color 160ms ease; }
+
+:root {
+  color-scheme: dark;
+  --app-text: #fafafa;
+  --app-muted: #b4b4b4;
+  --app-faint: #a3a3a3;
+  --app-surface: #18181b;
+  --app-raised: #27272a;
+  --app-border: #27272a;
+  --app-grid: #303030;
+  --app-focus: #6ee7b7;
+}
+/* RevLens owns these aliases; shared portfolio apps keep their own theme. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-neutral-50: #171717;
+  --color-neutral-100: #262626;
+  --color-neutral-200: #404040;
+  --color-neutral-300: #525252;
+  --color-neutral-400: #626262;
+  --color-neutral-500: #626262;
+  --color-neutral-600: #a3a3a3;
+  --color-neutral-700: #c7c7c7;
+  --color-neutral-800: #e5e5e5;
+  --color-neutral-900: #f5f5f5;
+  --color-neutral-950: #ffffff;
+  --app-text: #171717;
+  --app-muted: #525252;
+  --app-faint: #626262;
+  --app-surface: #f7f7f7;
+  --app-raised: #eeeeee;
+  --app-border: #e0e0e0;
+  --app-grid: #e5e5e5;
+  --app-focus: #047857;
+}
+.text-foreground { color: var(--app-text); }
+.text-foreground-secondary { color: var(--app-muted); }
+.text-foreground-tertiary, .text-neutral-500 { color: var(--app-faint); }
+.bg-surface { background-color: var(--app-surface); }
+.bg-surface-raised { background-color: var(--app-raised); }
+.border-border { border-color: var(--app-border); }
+.recharts-text { fill: var(--app-muted); }
+.recharts-cartesian-axis-tick-value { fill: var(--app-muted); font-size: 13px; }
+.recharts-legend-item-text { color: var(--app-muted) !important; }
+.recharts-cartesian-grid line { stroke: var(--app-grid); }
+.recharts-default-tooltip { background-color: var(--app-surface) !important; border-color: var(--app-border) !important; color: var(--app-text) !important; }
+.recharts-default-tooltip :is(.recharts-tooltip-label, .recharts-tooltip-item) { color: var(--app-text) !important; }
+:root[data-theme="light"] :is(.text-emerald-200, .text-emerald-300, .text-emerald-400, .text-accent-emerald) { color: #065f46; }
+:root[data-theme="light"] :is(.text-red-200, .text-red-400, .text-rose-200, .text-accent-rose) { color: #9f1239; }
+:root[data-theme="light"] :is(.text-amber-200, .text-amber-400) { color: #854d0e; }
+:root[data-theme="light"] .text-blue-400 { color: #1e40af; }
+:root[data-theme="light"] .text-neutral-950 { color: #0a0a0a; }
+:root[data-theme="light"] [class*="bg-emerald-950"] { background-color: #ecfdf5; }
+:root[data-theme="light"] [class*="bg-emerald-950"] .text-emerald-100,
+:root[data-theme="light"] .bg-emerald-950.text-emerald-100 { color: #065f46; }
+:root[data-theme="light"] :is([class*="bg-rose-950"], [class*="bg-red-950"]) { background-color: #fff1f2; }
+button, select, input { touch-action: manipulation; }
+dialog { overscroll-behavior: contain; }
+.customer-table td { vertical-align: top; overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; scroll-behavior: auto !important; }
+}
+@media (max-width: 639px) {
+  main h1 { font-size: 1.5rem; }
+  main .text-3xl { font-size: 1.5rem; }
+  .customer-table, .customer-table tbody { display: block; }
+  .customer-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .customer-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: 12px; gap: 8px 12px; }
+  .customer-table td { display: block; padding: 0; min-width: 0; }
+  .customer-table td:nth-child(2n) { text-align: right; }
+  .customer-table td:nth-child(3)::before { content: "Plan: "; color: var(--app-faint); }
+  .customer-table td:nth-child(5), .customer-table td:nth-child(6) { grid-column: 1 / -1; text-align: left; }
+  .customer-table td:nth-child(5)::before { content: "Invoice evidence: "; color: var(--app-faint); }
+  .customer-table td:nth-child(6)::before { content: "Review: "; color: var(--app-faint); }
+  .customer-table .customer-review-reason { max-width: none; }
+  button, select, input:not([type="checkbox"]) { min-height: 44px; }
+}
+@media print {
+  :root { color-scheme: light; }
+  body, main, main * { color: #111 !important; background: white !important; box-shadow: none !important; }
+  aside, header, nav, button, a[href="#main-content"], [data-no-print] { display: none !important; }
+  main { padding: 0 !important; }
+  main > div { max-width: none !important; }
+  .lg\:pl-64 { padding-left: 0 !important; }
+  table, section, dl { break-inside: avoid; }
+  .recharts-wrapper { display: none; }
+  dialog[open] { position: static !important; height: auto !important; max-width: none !important; }
+}

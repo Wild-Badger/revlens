@@ -1,0 +1,29 @@
+{
+  "name": "@portfolio/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./theme.css": "./src/theme.css",
+    "./lib/utils": "./src/lib/utils.ts",
+    "./components/card": "./src/components/card.tsx",
+    "./components/metric-card": "./src/components/metric-card.tsx",
+    "./components/page-header": "./src/components/page-header.tsx",
+    "./components/shell": "./src/components/shell.tsx"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^5"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
