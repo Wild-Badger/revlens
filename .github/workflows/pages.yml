@@ -110,11 +110,15 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout --orphan gh-pages
-          git rm --cached -r -f .
-          cp -r dist-demo/* .
-          touch .nojekyll
-          git add --force index.html assets .nojekyll
-          git commit -m "build: publish demo from $GITHUB_SHA"
-          git push --force origin gh-pages
+          git fetch --depth=1 origin gh-pages:refs/remotes/origin/gh-pages
+          publish_dir="$RUNNER_TEMP/revlens-pages"
+          git worktree add --detach "$publish_dir" origin/gh-pages
+          git -C "$publish_dir" rm -r --ignore-unmatch .
+          cp -r dist-demo/. "$publish_dir"/
+          touch "$publish_dir/.nojekyll"
+          git -C "$publish_dir" add --all
+          if ! git -C "$publish_dir" diff --cached --quiet; then
+            git -C "$publish_dir" commit -m "build: publish demo from $GITHUB_SHA"
+            git -C "$publish_dir" push origin HEAD:gh-pages
+          fi
           gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds"
