@@ -49,6 +49,8 @@ pnpm exec tsx scripts/verify-predictive.ts
 
 CI contains the complete runnable environment setup with temporary PostgreSQL. The normal Python command intentionally skips the destructive integration check when no explicit test URL is supplied. `scripts/build-case.py` requires reportlab and pypdfium2 in a presentation-only environment; these are not production analytics dependencies.
 
+CI regenerates reports and checks input hashes, selected methods and bounded numerical variation with `scripts/verify-artifacts.py`, then retains the checked-in release JSON for the static build. Windows/Linux ETS optimizer results differed slightly (demo pooled MAE 339.68/340.09); the tolerance and release-artifact policy are recorded in the evaluation report. This keeps the public interface, README and case consistent without claiming bit-identical floating-point fits across platforms.
+
 ## Limits
 
 Tests establish implementation behavior, not adoption, accounting coverage for every billing model, production security certification or real SaaS forecast accuracy. Chrome checks used emulated viewport sizes, not real mobile hardware or a screen reader. The public static mode cannot import private records. Live CRM integrations, queue workers and delivered alerts were not verified and are not claimed. Full launcher execution against an existing owner dataset was deliberately avoided; the isolated service, PostgreSQL flow and both builds were exercised separately.
