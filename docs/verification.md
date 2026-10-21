@@ -21,6 +21,22 @@ Implementation revision: `46316c469ad1da51932a19778164e04e0c05187e`. Presentatio
 
 The verification copy was compared byte-for-byte after newline normalization against the implementation files. It reused isolated dependencies to avoid working against an owner dataset. No test count is hardcoded in the presentation generator.
 
+## Reproduce database verification
+
+The complete, executed environment and command sequence is versioned in [the release workflow](../.github/workflows/pages.yml): PostgreSQL 17, two disposable databases, locked Node/Python dependencies, migrations, test flags, artifact regeneration and both builds. It supplies a reproducible reference without reading a local owner's credentials.
+
+For local integration, create and migrate a separate loopback database named `revlens_test`; these checks intentionally replace its fictional fixtures. Set `DATABASE_URL` and `REV_TEST_DATABASE_URL` to that database, and `REV_ANALYTICS_RUNTIME` to an absolute private directory outside the repository. Set `LOCAL_WORKSPACE_MODE=true`, `NEXT_PUBLIC_LOCAL_WORKSPACE_MODE=true`, `REV_ANALYTICS_ENABLED=true`, `DEMO_MODE=false` and `NEXT_PUBLIC_DEMO_MODE=false`, as in the workflow's integration step. Then run:
+
+```sh
+uv sync --frozen --all-groups --python 3.12
+pnpm exec prisma generate
+pnpm db:deploy
+uv run python -m pytest -q
+pnpm exec tsx scripts/verify-predictive.ts
+```
+
+Without `REV_TEST_DATABASE_URL`, pytest skips PostgreSQL integration tests; that is not a complete release verification. The separate `revlens_demo` database and seed/export commands in the workflow reproduce public artifacts. The artifact checker compares regenerated output with the Git version and is not a replacement for executing that pipeline.
+
 ## Connected Chrome flow
 
 Used the existing Chrome extension and a fresh disposable local owner, with no alternative account session.
@@ -40,7 +56,11 @@ The earlier upload Failed to fetch did not reproduce: both files uploaded and pa
 
 The English first page names the input, deliverables, insufficient-history path and limitations. Horizon 1's unfavorable result, pooled scores, retail distinction, counts and coverage derive from the reports. Capture notes distinguish public artifacts from local fictional test revisions. Six current images replace the old screenshot set. The package contains no personal contact details or private-project references.
 
-The public repository and Pages release use the main CI workflow. The full release gate passed in [run 39642545728](https://github.com/Wild-Badger/revlens/actions/runs/39642545728), including PostgreSQL integration, all five regenerated reports and both builds. Following a separately authorized editorial correction, README changes in this finalization were consolidated into one client-facing commit. Implementation and CI changes remain separate, and the Pages branch history is preserved. Docker/scaffold additions and Upwork actions are excluded. The final rewritten main revision receives a fresh CI run before release confirmation.
+The public repository and Pages release use the main CI workflow. The final client-facing README revision, `bde297b`, contains the single README-changing commit in this finalization. Its content and all implementation files match release run in [run 39644182643](https://github.com/Wild-Badger/revlens/actions/runs/39644182643): 186 TypeScript tests, 15 Python tests including real PostgreSQL integration, recovery checks, all five regenerated reports, typecheck, lint and both builds. Lint retained 18 existing warnings and no errors.
+
+README changes in this finalization were consolidated into one client-facing commit under separate editorial authorization. Implementation and CI changes remain separate; a tree comparison confirms their application, data, model, workflow and demo files match the previously verified implementation. The README generator retains the revised language, and regenerating it produces no diff. Docker/scaffold additions and Upwork actions are excluded.
+
+GitHub Pages reports a successful build of `461582a71b4c0f72b3cc0385d19192285f2d9586`. The final CI generated identical static files, so its normal deployment step preserved that existing commit and branch history. Connected Chrome confirmed the live HTTPS demo in desktop/mobile and both themes: exact forecast and horizon scores, visible comparison before export, both cohort tables through M47, sticky cohort labels, and no mobile page overflow. The installation link resolves to the rendered README's existing heading. README images loaded successfully. Final report-derived PDF figures, clickable links, six image hashes, nine ZIP entries and metadata limits were checked again after generation.
 
 Upwork metadata limits were checked against [official guidance](https://support.upwork.com/hc/en-us/articles/360016144974-How-to-enhance-your-freelancer-profile): title <=70, role <=100, description <=600, at most five tags. Suggested tags remain subject to the account's catalog when the owner authorizes a future upload. The local package is not an Upwork draft.
 
