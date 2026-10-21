@@ -58,21 +58,26 @@ def evaluation_document():
 
 def readme_document(c, r, retail):
     demo = read("demo/data.json")
-    lines = ["# " + c["title"], "", "**Import subscription history, reconcile MRR and deliver a forecast whose errors can be inspected.**", "",
-        f"[Interactive demo]({c['demoUrl']}) · [Evaluation](docs/forecast-evaluation.md) · [Skills and evidence](docs/skills-evidence.md) · [Architecture](docs/architecture.md)", "",
-        "![Evaluated forecast](docs/images/portfolio-forecast.png)", "", c["summary"], "", "## A client delivery this project demonstrates", ""]
-    lines.extend(f"- **{item['label']}:** {item['text']}" for item in c["delivery"])
-    lines += ["", f"Public fixture: **{len(demo['customers'])} fictional customers**, **{sum(len(value['subscriptions']) for value in demo['histories'].values())} dated intervals**, **{r['coverage']['completeMonths']} complete months**, observed through {r['asOf'][:10]}. Latest MRR: **USD {r['history'][-1]['value']:,.2f}**. Pages serves artifacts; no private files or Python server run there.", "",
-        "## Evidence, including the unfavorable result", "", f"Selected on earlier validation: **{r['selectedLabel']}**. Final pooled MAE: **USD {r['test']['selected']['mae']:,.2f}** versus **USD {r['test']['baseline']['mae']:,.2f}** for the baseline. No method is selected or tuned from the final test.", "",
+    lines = ["# " + c["title"], "", c["readmeIntroduction"], "",
+        f"[Explore the demo]({c['demoUrl']}#/forecast) · [Evaluation results](docs/forecast-evaluation.md) · [Skills and code evidence](docs/skills-evidence.md) · [Architecture](docs/architecture.md)", "",
+        "![Statistical forecast with observed error and baseline comparison](docs/images/portfolio-forecast.png)", "",
+        "## The problem and the implementation", "", c["problem"], "", c["solution"], "",
+        "## What a revenue analytics engagement can deliver", ""]
+    lines.extend(f"- **{item['label']}:** {item['text']}" for item in c["delivery"] if item['label'] != 'Scope')
+    lines += ["", "The implementation covers the complete handover: validated source data, reconciled SQL metrics, an evaluated Python forecast, an interactive dashboard and instructions to reproduce the results. The [evidence matrix](docs/skills-evidence.md) connects each skill to code, runnable checks and its limitations.", "",
+        "## Forecast performance", "",
+        f"The subscription experiment contains **{len(demo['customers'])} fictional customers**, **{sum(len(value['subscriptions']) for value in demo['histories'].values())} dated intervals** and **{r['coverage']['completeMonths']} complete months**, observed through {r['asOf'][:10]}. Latest MRR: **USD {r['history'][-1]['value']:,.2f}**.", "",
+        f"Earlier rolling-origin validation selects **{r['selectedLabel']}** from a last-value baseline, level smoothing and damped-trend ETS. The final six months are reserved for evaluation. Pooled test MAE is **USD {r['test']['selected']['mae']:,.2f}**, compared with **USD {r['test']['baseline']['mae']:,.2f}** for the baseline.", "",
         "| Horizon | Selected MAE (USD) | Baseline MAE (USD) | Test forecasts |", "| --- | ---: | ---: | ---: |"]
     for selected, baseline in zip(r['test']['selected']['byHorizon'],r['test']['baseline']['byHorizon'],strict=True):
-        lines.append(f"| {selected['horizon']} month(s) | {selected['mae']:,.2f} | {baseline['mae']:,.2f} | {selected['count']} |")
-    lines += ["", f"The selected method {'loses to' if r['test']['selected']['byHorizon'][0]['mae'] > r['test']['baseline']['byHorizon'][0]['mae'] else 'matches or beats'} the baseline at horizon 1. Selection uses aggregate earlier validation, not hindsight on the test.", "",
-        f"Separate real experiment: UCI Online Retail II net invoiced sales in GBP, including returns. Selected **{retail['selectedLabel']}**, pooled MAE **GBP {retail['test']['selected']['mae']:,.2f}**, WAPE **{retail['test']['selected']['wape']:.2%}**. Retail results establish no SaaS MRR accuracy.", "",
-        "Nominal 80%/95% intervals are conditional on model assumptions. Observed coverage and the small, overlapping holdout are reported. Review flags and implied LTV are descriptive heuristics; there is no individual churn model, causal claim or business-uplift promise.", "",
-        "## History and safe recovery", "", c['recovery'], "", "![Captured versions](docs/images/portfolio-scd2.png)", "",
-        "The [48-month subscription CSV](docs/examples/revlens-48-months.csv) and [intentionally invalid CSV](docs/examples/revlens-invalid.csv) are deterministic examples. Use coverage start **2022-10** and confirm completeness for the valid example. They contain subscription facts only; invoices, payments and events are intentionally absent.", "", c['readmeInstructions']]
-    (ROOT/'README.md').write_text("\n".join(lines)+"\n",encoding='utf-8')
+        lines.append(f"| {selected['horizon']} {'month' if selected['horizon'] == 1 else 'months'} | {selected['mae']:,.2f} | {baseline['mae']:,.2f} | {selected['count']} |")
+    lines += ["", f"The selected method {'has higher error than' if r['test']['selected']['byHorizon'][0]['mae'] > r['test']['baseline']['byHorizon'][0]['mae'] else 'matches or beats'} the baseline at one month. Method selection uses aggregate earlier validation; the final test is never used to choose or tune the method. The overlapping test forecasts are a small sample. Nominal 80% and 95% intervals depend on model assumptions; observed coverage is reported in the [full evaluation](docs/forecast-evaluation.md).", "",
+        f"A separate **real-data benchmark** uses UCI Online Retail II net invoiced sales in GBP, including returns. It selects **{retail['selectedLabel']}**, with pooled MAE **GBP {retail['test']['selected']['mae']:,.2f}** and WAPE **{retail['test']['selected']['wape']:.2%}**. Its aggregates, cleaning rules, checksums and CC BY 4.0 attribution are published with the [evaluation](docs/forecast-evaluation.md#real-data-provenance-and-limitations). This experiment measures retail sales, not SaaS MRR accuracy.", "",
+        "## Data engineering and recovery", "", c['pipeline'], "",
+        "SQL/dbt marts drive revenue movements, retention and cohorts. Native SCD2 snapshots record customer and plan changes from observed captures, keeping the source observation date separate from the capture timestamp. Pending analysis hides stale attribute versions while preserving access to operational records.", "",
+        c['recovery'], "", "![Customer attribute history with distinct observation and capture dates](docs/images/portfolio-scd2.png)", "",
+        "The [architecture](docs/architecture.md) documents the local Python service, PostgreSQL warehouse, Next.js APIs and static demo boundary. The [verification report](docs/verification.md) records import rejection, real process interruption, checkpoint restoration and successful retry through connected Chrome.", "", c['readmeInstructions']]
+    (ROOT/'README.md').write_text("\n".join(lines).rstrip()+"\n",encoding='utf-8')
 
 
 def build(output):
@@ -143,7 +148,7 @@ def build(output):
     assert len(PdfReader(pdf).pages)==4, 'Case must have exactly four pages'
     assert pdf.stat().st_size < 25*1024*1024
     revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
-    copy={key:value for key,value in c.items() if key!='readmeInstructions'}
+    copy={key:value for key,value in c.items() if key not in ('readmeInstructions', 'readmeIntroduction')}
     import hashlib
     copy['imageSha256']={name:hashlib.sha256((ROOT/'docs/images'/name).read_bytes()).hexdigest() for name in c['images']}
     copy.update(codeRevision=revision,evaluation={'methodVersion':r['methodVersion'],'dataHash':r['dataHash'],'selectedModel':r['selectedModel'],'test':r['test']['selected'],'baseline':r['test']['baseline']},uploadStatus='Awaiting owner greenlight; not uploaded to Upwork')

@@ -40,7 +40,7 @@ The earlier upload Failed to fetch did not reproduce: both files uploaded and pa
 
 The English first page names the input, deliverables, insufficient-history path and limitations. Horizon 1's unfavorable result, pooled scores, retail distinction, counts and coverage derive from the reports. Capture notes distinguish public artifacts from local fictional test revisions. Six current images replace the old screenshot set. The package contains no personal contact details or private-project references.
 
-The public repository and Pages release use the normal main CI workflow. Publication is allowed only after its checks pass; record the final run below. No history rewrite, Docker/scaffold additions or Upwork action is included.
+The public repository and Pages release use the main CI workflow. The full release gate passed in [run 39642545728](https://github.com/Wild-Badger/revlens/actions/runs/39642545728), including PostgreSQL integration, all five regenerated reports and both builds. Following a separately authorized editorial correction, README changes in this finalization were consolidated into one client-facing commit. Implementation and CI changes remain separate, and the Pages branch history is preserved. Docker/scaffold additions and Upwork actions are excluded. The final rewritten main revision receives a fresh CI run before release confirmation.
 
 Upwork metadata limits were checked against [official guidance](https://support.upwork.com/hc/en-us/articles/360016144974-How-to-enhance-your-freelancer-profile): title <=70, role <=100, description <=600, at most five tags. Suggested tags remain subject to the account's catalog when the owner authorizes a future upload. The local package is not an Upwork draft.
 
