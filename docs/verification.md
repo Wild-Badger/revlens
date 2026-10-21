@@ -8,7 +8,7 @@ Checks used isolated fictional databases, never private business records or bill
 | TypeScript/Vitest | 182 tests passed in 22 files | Money/date boundaries, cohorts, import/backup, auth/origin guards and static forecast adapter |
 | Python unit checks | 5 passed | Temporal leakage, history validation, constant/zero series, candidate failures, deterministic engine and private API auth |
 | Python/PostgreSQL integration | Passed | Actual dbt build, raw/monthly reconciliation across 48 months, repeated/changed/deleted/reappearing customer and plan snapshots, failed-process retry |
-| Node/PostgreSQL integration | 9 checks (8 checked locally; expanded catalog-identity check runs in CI) | Pending barrier, unavailable service recovery, idempotence, changed attributes, v2 full restore, v1 unknown history, real database-error rollback and new-source isolation |
+| Node/PostgreSQL integration | 9 checks passed | Pending barrier, unavailable service recovery, idempotence, changed attributes, v2 full restore, v1 unknown history, real database-error rollback, new-source isolation and stable catalog identity |
 | ESLint | 0 errors, 18 existing unused-symbol warnings | Application and test sources |
 | Next.js production build | Passed | Local environment; all 45 pages/routes generated; webpack supports linked standalone dependencies |
 | Static build/export | Passed | 60 fictional customers, 191 intervals, 24 scopes; raw movements reconcile to MRR $16,277.88 |
