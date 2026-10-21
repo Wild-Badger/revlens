@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { prisma } from "../lib/db";
 import { getCustomersList, getCustomerDetail, getCustomerRevenueHistory } from "../lib/customers";
@@ -14,7 +14,7 @@ async function main() {
   // ponytail: this bounded export only reads the identified fictional release database.
   assert.equal(process.env.DEMO_MODE, "true", "DEMO_MODE must be true");
   const database = new URL(process.env.DATABASE_URL ?? "");
-  assert(["localhost", "127.0.0.1"].includes(database.hostname) && database.port === "55432", "Use only the isolated demo database on port 55432");
+  assert(["localhost", "127.0.0.1"].includes(database.hostname) && ["revlens_demo","revlens_predictive_demo"].includes(database.pathname.slice(1)), "Use only an explicitly named isolated demo database");
   const [customers, intervals, catalog, summary, plans] = await Promise.all([
     getCustomersList(),
     prisma.subscription.findMany({ select: { startedAt: true, endedAt: true } }),
@@ -23,7 +23,7 @@ async function main() {
     prisma.plan.findMany({ select: { name: true }, distinct: ["name"], orderBy: { name: "asc" } }),
   ]);
   assert.equal(customers.length, 60);
-  assert.equal(intervals.length, 66);
+  assert(intervals.length >= 60);
   assert(customers.every((customer) => customer.domain?.endsWith(".example")), "Export only the fictional .example accounts");
   assert.equal(summary.as_of, "2026-09-30T23:59:59.999Z");
   const eventDays = [...new Set(intervals.flatMap((interval) => [interval.startedAt, interval.endedAt]
@@ -56,8 +56,12 @@ async function main() {
   }
   const planMembership: DemoData["planMembership"] = {};
   for (const plan of plans) planMembership[plan.name] = (await getCustomersList({ plan: plan.name })).map((customer) => customer.id);
-  const data: DemoData = {
-    format: "revlens-fictional-demo", version: 1, summary, customers, details, histories, scopes,
+  const prediction = JSON.parse(await readFile(resolve("analytics/reports/demo-prediction.json"), "utf8"));
+  assert.equal(prediction.status,"ready");
+  assert.equal(prediction.coverage.completeMonths,48);
+  assert.equal(prediction.history.at(-1).value,summary.current_mrr);
+  const data: DemoData = { prediction,
+    format: "revlens-fictional-demo", version: 2, summary, customers, details, histories, scopes,
     plans: plans.map((plan) => plan.name), planMembership,
     planRetention: await getPlanRetention(), segmentRetention: await getSegmentRetention(), forecast: await getForecastScenarios(),
   };

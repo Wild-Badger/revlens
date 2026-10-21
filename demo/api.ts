@@ -19,6 +19,8 @@ export async function demoFetch(input: string, init?: RequestInit): Promise<Resp
   const url = new URL(input, "https://revlens.example");
   const params = url.searchParams;
   const path = url.pathname;
+  if (path === "/api/forecast/prediction") return Response.json(data.prediction);
+  if (path === "/api/analytics/forecast") return error("Legacy forecast retired; use /api/forecast/prediction",410);
   if (path === "/api/revenue/summary") return Response.json(data.summary);
   if (path === "/api/customers") {
     const options = Object.fromEntries(params);

@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 
-export async function getDatasetContext() {
+export async function getDatasetContext(db: Pick<Prisma.TransactionClient, "datasetMetadata"> = prisma) {
   if (process.env.DEMO_MODE === "true") {
     return { kind: "demo" as const, asOf: new Date(process.env.DEMO_AS_OF ?? "2026-09-30T23:59:59.999Z"), currency: "USD", importedAt: null, rowCount: 60 };
   }
   const metadata = process.env.LOCAL_WORKSPACE_MODE === "true"
-    ? await prisma.datasetMetadata.findUnique({ where: { id: "local" } })
+    ? await db.datasetMetadata.findUnique({ where: { id: "local" } })
     : null;
   return {
     kind: metadata ? "local" as const : "empty" as const,

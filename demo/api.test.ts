@@ -4,6 +4,15 @@ import data from "./data.json";
 import { movementsInRange } from "./movements";
 
 describe("fictional public demo", () => {
+  it("serves an evaluated quarterly prediction separately from manual scenarios", async () => {
+    const prediction = await (await demoFetch("/api/forecast/prediction")).json();
+    expect(prediction.status).toBe("ready");
+    expect(prediction.coverage.completeMonths).toBe(48);
+    expect(prediction.forecast).toHaveLength(3);
+    expect(prediction.test.selected.count).toBe(15);
+    expect(prediction.dataHash).toMatch(/^[a-f0-9]{64}$/);
+    expect((await demoFetch("/api/analytics/forecast")).status).toBe(410);
+  });
   it("reconciles every filtered daily snapshot with the production monthly export", () => {
     for (const scope of Object.values(data.scopes)) expect(movementsInRange(scope.dailyMovements, null, null)).toEqual(scope.movements);
   });

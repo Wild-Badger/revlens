@@ -1,3 +1,4 @@
+import { importOptionsSchema, type ImportOptions } from "./options";
 import { createHash } from "node:crypto";
 import { auth } from "@/auth";
 import { hasLocalMutationOrigin } from "@/lib/dataset";
@@ -13,7 +14,7 @@ export async function requireLocalImport(request: Request) {
   if (!session?.user) throw new ImportRequestError("Sign in to the local workspace", 401);
   if (session.user.role !== "admin") throw new ImportRequestError("Only the local owner can replace this dataset", 403);
 }
-export async function readImportRequest(request: Request): Promise<{ csv: string; mappings?: ColumnMappings; confirmed: boolean; previewToken?: string }> {
+export async function readImportRequest(request: Request): Promise<{ csv: string; mappings?: ColumnMappings; confirmed: boolean; previewToken?: string; options: ImportOptions }> {
   const maxBody = MAX_IMPORT_BYTES + 128 * 1024;
   if (Number(request.headers.get("content-length")) > maxBody) throw new ImportRequestError("Request exceeds the 2 MiB CSV limit", 413);
   const reader = request.body?.getReader();
@@ -30,7 +31,7 @@ export async function readImportRequest(request: Request): Promise<{ csv: string
   const body = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.length; }
-  let csv: unknown, mappings: unknown, confirmed: unknown, previewToken: unknown;
+  let csv: unknown, mappings: unknown, confirmed: unknown, previewToken: unknown, options: unknown;
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.includes("multipart/form-data")) {
     const form = await new Response(body, { headers: { "content-type": contentType } }).formData();
@@ -39,17 +40,21 @@ export async function readImportRequest(request: Request): Promise<{ csv: string
     if (file.size > MAX_IMPORT_BYTES) throw new ImportRequestError("CSV exceeds the 2 MiB limit", 413);
     csv = new TextDecoder("utf-8", { fatal: true }).decode(await file.arrayBuffer());
     mappings = form.has("mappings") ? JSON.parse(String(form.get("mappings"))) : undefined;
+    options = form.has("options") ? JSON.parse(String(form.get("options"))) : {};
     confirmed = form.get("confirmReplace") === "true";
     previewToken = form.get("previewToken") ?? undefined;
   } else if (contentType.includes("application/json")) {
     const parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
+    options = parsed.options ?? {};
     csv = parsed.csv; mappings = parsed.mappings; confirmed = parsed.confirmReplace; previewToken = parsed.previewToken;
   } else throw new ImportRequestError("Use multipart/form-data or application/json");
   if (typeof csv !== "string" || !csv.trim()) throw new ImportRequestError("CSV content is required");
   if (mappings !== undefined && (!mappings || Array.isArray(mappings) || typeof mappings !== "object" || Object.values(mappings).some(value => value !== null && typeof value !== "string"))) throw new ImportRequestError("Mappings must be an object of destination field to source header");
   if (previewToken !== undefined && typeof previewToken !== "string") throw new ImportRequestError("Invalid preview token");
-  return { csv, mappings: mappings as ColumnMappings | undefined, confirmed: confirmed === true, previewToken: previewToken as string | undefined };
+  const checkedOptions = importOptionsSchema.safeParse(options ?? {});
+  if (!checkedOptions.success) throw new ImportRequestError(checkedOptions.error.issues.map(issue => issue.message).join("; "));
+  return { options: checkedOptions.data, csv, mappings: mappings as ColumnMappings | undefined, confirmed: confirmed === true, previewToken: previewToken as string | undefined };
 }
-export function importPreviewToken(csv: string, mappings?: ColumnMappings) {
-  return createHash("sha256").update(csv).update(JSON.stringify(Object.entries(mappings ?? {}).sort(([a], [b]) => a.localeCompare(b)))).digest("hex");
+export function importPreviewToken(csv: string, mappings?: ColumnMappings, options?: ImportOptions) {
+  return createHash("sha256").update(csv).update(JSON.stringify(options ?? importOptionsSchema.parse({}))).update(JSON.stringify(Object.entries(mappings ?? {}).sort(([a], [b]) => a.localeCompare(b)))).digest("hex");
 }

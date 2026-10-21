@@ -1,3 +1,4 @@
+import type { PredictionReport } from "../lib/prediction";
 import type { getRevenueSummary, RevenueMovement } from "../lib/revenue";
 import type { CustomerDetail, CustomerListItem, CustomerRevenueLifecycle } from "../lib/customers";
 import type { CohortData, PlanRetention, SegmentRetention } from "../lib/cohorts";
@@ -14,7 +15,8 @@ export type DemoScope = {
 
 export type DemoData = {
   format: "revlens-fictional-demo";
-  version: 1;
+  version: 2;
+  prediction: PredictionReport;
   summary: Awaited<ReturnType<typeof getRevenueSummary>>;
   customers: CustomerListItem[];
   details: Record<string, CustomerDetail>;

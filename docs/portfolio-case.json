@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 2,
+  "title": "RevLens: Revenue Forecasting & Analytics",
+  "role": "Data Science, Data Engineering & Full-Stack Development",
+  "summary": "Built a local revenue analytics application with Python forecasting, tested SQL/dbt marts, PostgreSQL SCD2 history and a Next.js interface. It compares statistical models using temporal validation and displays errors, baseline performance and interval coverage. Includes recoverable imports and a separate real-data retail benchmark. Public demo uses fictional subscriptions.",
+  "skills": [
+    "Python",
+    "Data Science",
+    "SQL",
+    "dbt",
+    "PostgreSQL",
+    "Time Series Forecasting",
+    "TypeScript",
+    "Next.js"
+  ],
+  "problem": "Revenue dashboards often mix descriptive metrics, manual scenarios and predictions without showing which is which. Imported corrections also need traceable history and a recoverable analytical pipeline.",
+  "solution": "RevLens separates statistical forecasts from what-if planning. Dated subscription facts feed tested dbt views; native snapshots capture customer and plan changes. Python compares three transparent methods, evaluates them without using future observations, and exposes the evidence in the UI.",
+  "pipeline": "Validated CSV → transactional raw save and revision → dbt snapshots, views and tests → temporal model evaluation → 1–3 month prediction → tables and JSON export.",
+  "recovery": "A failed refresh preserves raw data, marks analytics pending, blocks stale results and supports retry. Backup v2 preserves source metadata and captured versions; old backups remain restorable with earlier history unknown.",
+  "limits": "Personal portfolio project. Synthetic subscriptions do not establish real SaaS accuracy or business impact. The real benchmark measures GBP retail sales, not MRR. Local, single-operator and USD-only imports; no individual churn prediction, causal claims, cloud scheduler or live CRM delivery.",
+  "demoUrl": "https://wild-badger.github.io/revlens/",
+  "sourceUrl": "https://github.com/Wild-Badger/revlens",
+  "images": [
+    "statistical-forecast.jpg",
+    "customer-history.jpg",
+    "forecast-light.jpg",
+    "forecast-mobile.jpg"
+  ]
+}

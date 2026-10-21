@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { readSnapshotRows, restoreSnapshotRows, resetSnapshotRows, snapshotRowsSchema, validateSnapshotRows } from "@/lib/attribute-history";
+import { isWarehouseRuntime } from "@/lib/warehouse";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { z } from "zod";
 
@@ -29,16 +32,21 @@ function finiteJson(value: unknown, depth = 0): boolean {
 
 const backupSchema = z.object({
   format: z.literal("revlens-dataset"),
-  schemaVersion: z.literal(1),
+  schemaVersion: z.union([z.literal(1), z.literal(2)]),
+  attributeHistory: z.object({ customers: snapshotRowsSchema, plans: snapshotRowsSchema }).strict().optional(),
   exportedAt: timestamp,
-  metadata: z.object({ id: z.literal("local"), asOf: timestamp, currency: z.literal("USD"), importedAt: timestamp, rowCount: z.number().int().min(0).max(100000) }).strict().nullable(),
+  metadata: z.object({ id: z.literal("local"), asOf: timestamp, currency: z.literal("USD"), importedAt: timestamp, rowCount: z.number().int().min(0).max(100000),
+    sourceId: uuid.optional(), sourceName: text.optional(), historyStart: timestamp.nullable().optional(), historyComplete: z.boolean().optional(),
+    revision: z.number().int().min(0).max(2147483647).optional(), analyticsRevision: z.number().int().min(-1).max(2147483647).optional(),
+    pipelineStatus: z.enum(["ready","pending","failed"]).optional(),
+  }).strict().nullable(),
   customers: z.array(z.object({
     id: uuid, name: text, domain: text.nullable(), industry: text, companySize: text,
     country: text, acquisitionChannel: text, createdAt: timestamp, convertedAt: timestamp.nullable(),
     churnedAt: timestamp.nullable(), status: z.enum(["lead", "active", "churned", "reactivated"]),
   }).strict()).max(20000),
   plans: z.array(z.object({
-    id: uuid, name: text, billingInterval: interval, basePrice: money, seatPrice: money, createdAt: timestamp,
+    id: uuid, name: text, billingInterval: interval, basePrice: money.nullable(), seatPrice: money.nullable(), createdAt: timestamp,
   }).strict()).max(1000),
   subscriptions: z.array(z.object({
     id: uuid, customerId: uuid, planId: uuid, status: z.enum(["active", "cancelled", "canceled", "past_due", "trialing", "paused"]),
@@ -69,8 +77,16 @@ export function parseDatasetBackup(value: unknown): DatasetBackup {
     throw new DatasetBackupError(result.error.issues.slice(0, 5).map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ").slice(0, 1000));
   }
   const backup = result.data;
+  if (backup.schemaVersion === 2 && backup.metadata && (!backup.metadata.sourceId || !backup.attributeHistory)) throw new DatasetBackupError("Version 2 needs source identity and attribute history");
+  if (backup.attributeHistory) {
+    try {
+      if (!backup.metadata?.sourceId && (backup.attributeHistory.customers.length || backup.attributeHistory.plans.length)) throw new Error("SCD2 needs a source identity");
+      validateSnapshotRows(backup.attributeHistory.customers, backup.metadata?.sourceId ?? "");
+      validateSnapshotRows(backup.attributeHistory.plans, backup.metadata?.sourceId ?? "");
+    } catch { throw new DatasetBackupError("Invalid SCD2 history or overlapping versions"); }
+  }
   const tables = [backup.customers, backup.plans, backup.subscriptions, backup.invoices, backup.payments, backup.productEvents];
-  if (tables.reduce((sum, rows) => sum + rows.length, 0) > 250000) throw new DatasetBackupError("Backup exceeds 250000 business records");
+  if (tables.reduce((sum, rows) => sum + rows.length, 0) + (backup.attributeHistory?.customers.length ?? 0) + (backup.attributeHistory?.plans.length ?? 0) > 250000) throw new DatasetBackupError("Backup exceeds 250000 business records");
   for (const rows of tables) {
     if (new Set(rows.map((row) => row.id)).size !== rows.length) throw new DatasetBackupError("Duplicate record IDs");
   }
@@ -114,7 +130,8 @@ export async function exportDatasetBackup(db: PrismaClient): Promise<DatasetBack
       tx.subscription.findMany({ orderBy: { id: "asc" }, take: 100001 }), tx.invoice.findMany({ orderBy: { id: "asc" }, take: 100001 }),
       tx.payment.findMany({ orderBy: { id: "asc" }, take: 100001 }), tx.productEvent.findMany({ orderBy: { id: "asc" }, take: 100001 }),
     ]);
-    return { format: "revlens-dataset", schemaVersion: 1, exportedAt: new Date().toISOString(), metadata, customers, plans, subscriptions, invoices, payments, productEvents };
+    const attributeHistory = isWarehouseRuntime() ? { customers: await readSnapshotRows(tx,"customer"), plans: await readSnapshotRows(tx,"plan") } : { customers: [], plans: [] };
+    return { attributeHistory, format: "revlens-dataset", schemaVersion: 2, exportedAt: new Date().toISOString(), metadata, customers, plans, subscriptions, invoices, payments, productEvents };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 60000 });
   const serialized = JSON.stringify(snapshot, (_, item) => typeof item === "bigint" ? item.toString() : item);
   if (Buffer.byteLength(serialized) > MAX_BACKUP_BYTES - 1024) throw new DatasetBackupError("Backup exceeds the 25 MiB local restore limit");
@@ -126,6 +143,8 @@ export async function restoreDatasetBackup(db: PrismaClient, value: unknown): Pr
   await db.$transaction(async (tx) => {
     // One replacement at a time, including concurrent import writes; auth tables are never touched.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(20261020, 2)`;
+    const current = await tx.datasetMetadata.findUnique({ where: { id: "local" } });
+    if (isWarehouseRuntime()) await resetSnapshotRows(tx);
     await tx.$executeRaw`LOCK TABLE customers, plans, subscriptions, invoices, payments, product_events IN SHARE ROW EXCLUSIVE MODE`;
     await tx.payment.deleteMany();
     await tx.productEvent.deleteMany();
@@ -145,7 +164,15 @@ export async function restoreDatasetBackup(db: PrismaClient, value: unknown): Pr
         ...event, id: BigInt(event.id), properties: event.properties === null ? Prisma.DbNull : event.properties as Prisma.InputJsonValue,
       })) });
     }
-    if (backup.metadata) await tx.datasetMetadata.create({ data: backup.metadata });
+    if (backup.metadata) await tx.datasetMetadata.create({ data: { ...backup.metadata,
+      sourceId: backup.metadata.sourceId ?? randomUUID(), sourceName: backup.metadata.sourceName ?? "Restored legacy dataset",
+      historyStart: backup.metadata.historyStart ?? null, historyComplete: backup.schemaVersion === 2 && (backup.metadata.historyComplete ?? false),
+      revision: Math.max(current?.revision ?? 0, backup.metadata.revision ?? 0) + 1, analyticsRevision: -1, pipelineStatus: "pending",
+    } });
+    if (isWarehouseRuntime() && backup.attributeHistory) {
+      await restoreSnapshotRows(tx,"customer",backup.attributeHistory.customers);
+      await restoreSnapshotRows(tx,"plan",backup.attributeHistory.plans);
+    }
     // Explicit IDs must not collide with the next generated event ID after restore.
     await tx.$queryRaw`SELECT setval(pg_get_serial_sequence('product_events', 'id'), COALESCE((SELECT MAX(id) FROM product_events), 0) + 1, false)`;
   }, { timeout: 60000 });

@@ -1,5 +1,7 @@
 "use client";
 
+import { AttributeHistory } from "@/components/attribute-history";
+import type { AttributeVersion } from "@/lib/attribute-history";
 import { apiFetch, replaceRouteQuery } from "@/lib/api-fetch";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -72,6 +74,7 @@ interface UsageSummary {
 }
 
 interface CustomerDetail {
+  attributeHistory?: AttributeVersion[];
   asOf: string;
   id: string;
   name: string;
@@ -602,6 +605,8 @@ export default function CustomersPage() {
                   <p className="mt-3 text-sm leading-6 text-neutral-300">As of {formatDate(selectedCustomer.asOf)}. Source: supplied invoice statuses and subscription/event records. Verify timing and prior contact in your billing system or CRM before outreach.</p>
                   <details className="mt-3 text-sm text-neutral-300"><summary className="cursor-pointer">How this flag is calculated</summary><p className="mt-2 leading-6">Explainable heuristic, not a prediction: failed invoices +3, more than two open invoices +2, MRR below 80% of largest recorded subscription +2, 1–19 supplied events +2, reactivated status +1. Medium ≥2; high ≥4. Missing invoice/usage records are unknown, not adverse evidence. Leads and already-churned accounts are not scored.</p></details>
                 </div>
+
+                <AttributeHistory versions={selectedCustomer.attributeHistory ?? []} />
 
                 {/* Revenue History Chart */}
                 <div className="space-y-2">

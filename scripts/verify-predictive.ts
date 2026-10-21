@@ -1,0 +1,82 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { prisma } from "../lib/db";
+import { validateImportCSV, TEMPLATE_CSV } from "../lib/import/csv-validator";
+import { importCustomersData } from "../lib/import/import-service";
+import { importOptionsSchema } from "../lib/import/options";
+import { exportDatasetBackup, restoreDatasetBackup } from "../lib/dataset-backup";
+import { getAttributeHistory } from "../lib/attribute-history";
+import { analyticsService } from "../lib/analytics-service";
+import { getRevenueSummary } from "../lib/revenue";
+
+const checks: string[] = [];
+function refresh() {
+  const result=spawnSync("uv",["run","--no-sync","python","-m","analytics.cli","refresh"],{encoding:"utf8",env:process.env});
+  assert.equal(result.status,0,result.stderr?.slice(-2000));
+}
+async function main() {
+  const database=new URL(process.env.DATABASE_URL??"");
+  assert(["localhost","127.0.0.1"].includes(database.hostname)&&database.pathname.endsWith("_test"),"Use only the explicitly disposable *_test database");
+  const validation=validateImportCSV(TEMPLATE_CSV);
+  assert.deepEqual(validation.errors,[]);
+  const options=importOptionsSchema.parse({mode:"new",sourceName:"Integration source"});
+  const saved=await importCustomersData(prisma,validation,options);
+  assert.equal((await prisma.datasetMetadata.findUniqueOrThrow({where:{id:"local"}})).pipelineStatus,"pending");
+  await assert.rejects(()=>importCustomersData(prisma,validation,options),/pending/i);
+  checks.push("pending revision blocks another replacement");
+  const previousUrl=process.env.REV_ANALYTICS_URL;
+  process.env.REV_ANALYTICS_URL="http://127.0.0.1:18109";
+  process.env.REV_ANALYTICS_TOKEN="a".repeat(64);
+  await assert.rejects(()=>analyticsService("/v1/refresh",saved.revision));
+  assert.equal(await prisma.customer.count(),3);
+  process.env.REV_ANALYTICS_URL=previousUrl;
+  refresh();
+  assert.equal((await getRevenueSummary()).current_mrr,200);
+  checks.push("Python interruption preserves raw data; refresh recovers real dbt marts");
+  const baseline=await exportDatasetBackup(prisma);
+  assert.equal(baseline.schemaVersion,2);
+  assert.equal(baseline.attributeHistory?.customers.length,3);
+  const source=baseline.metadata!.sourceId;
+  await importCustomersData(prisma,validation,{...options,mode:"update"});refresh();
+  assert.equal((await exportDatasetBackup(prisma)).attributeHistory?.customers.length,3);
+  checks.push("repeat import is idempotent for facts and SCD2");
+  const first=validation.validRows[0].customer_id;
+  const changed={...validation,validRows:validation.validRows.map(row=>row.customer_id===first?{...row,name:"Renamed Example"}:row)};
+  await importCustomersData(prisma,changed,{...options,mode:"update"});refresh();
+  const customer=await prisma.customer.findFirstOrThrow({where:{name:"Renamed Example"}});
+  assert.equal((await getAttributeHistory("customer",customer.id)).length,2);
+  checks.push("changed attributes create an actual SCD2 version");
+  await restoreDatasetBackup(prisma,baseline);refresh();
+  assert.equal((await exportDatasetBackup(prisma)).attributeHistory?.customers.length,3);
+  assert.equal((await prisma.datasetMetadata.findUniqueOrThrow({where:{id:"local"}})).sourceId,source);
+  assert.equal(await prisma.customer.count({where:{name:"Renamed Example"}}),0);
+  checks.push("v2 restore preserves source and complete captured history");
+  const legacy=JSON.parse(JSON.stringify(baseline));legacy.schemaVersion=1;delete legacy.attributeHistory;
+  legacy.metadata=Object.fromEntries(Object.entries(legacy.metadata).filter(([key])=>["id","asOf","currency","importedAt","rowCount"].includes(key)));
+  await restoreDatasetBackup(prisma,legacy);refresh();
+  assert.equal((await prisma.datasetMetadata.findUniqueOrThrow({where:{id:"local"}})).historyComplete,false);
+  checks.push("v1 backup restores without inventing historical coverage");
+  const before=await prisma.datasetMetadata.findUniqueOrThrow({where:{id:"local"}});
+  await prisma.$executeRawUnsafe("ALTER TABLE customers ADD CONSTRAINT predictive_rollback_probe CHECK (name <> 'Rollback probe') NOT VALID");
+  try {
+    const invalid={...validation,validRows:validation.validRows.map(row=>row.customer_id===first?{...row,name:"Rollback probe"}:row)};
+    await assert.rejects(()=>importCustomersData(prisma,invalid,{...options,mode:"update"}));
+    assert.equal(await prisma.customer.count(),3);
+    assert.equal((await prisma.datasetMetadata.findUniqueOrThrow({where:{id:"local"}})).revision,before.revision);
+  } finally { await prisma.$executeRawUnsafe("ALTER TABLE customers DROP CONSTRAINT predictive_rollback_probe"); }
+  checks.push("genuine database failure rolls back raw replacement and revision");
+  await importCustomersData(prisma,validation,{...options,mode:"new",sourceName:"Another source"});refresh();
+  const next=await exportDatasetBackup(prisma);
+  assert.notEqual(next.metadata!.sourceId,source);assert.equal(next.attributeHistory?.customers.length,3);
+  checks.push("new source gets a new identity and isolated attribute history");
+  const catalog = { ...validation, validRows: validation.validRows.map(row => ({ ...row, plan_id: `catalog:${row.plan_name}` })) };
+  await importCustomersData(prisma,catalog,{...options,mode:"update"});refresh();
+  const plan = await prisma.plan.findFirstOrThrow({where:{name:catalog.validRows[0].plan_name}});
+  const revisedCatalog = { ...catalog, validRows: catalog.validRows.map(row => row.plan_id===catalog.validRows[0].plan_id ? {...row,plan_name:"Catalog renamed",billing_interval:"annual" as const,plan_base_price:99} : row) };
+  await importCustomersData(prisma,revisedCatalog,{...options,mode:"update"});refresh();
+  assert.equal((await prisma.plan.findFirstOrThrow({where:{name:"Catalog renamed"}})).id,plan.id);
+  assert.equal((await getAttributeHistory("plan",plan.id)).length,2);
+  checks.push("explicit plan ID survives rename, billing interval and catalog-price changes");
+  console.log(JSON.stringify({result:"PASS",checks,syntheticOnly:true}));
+}
+main().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>prisma.$disconnect());

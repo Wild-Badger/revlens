@@ -1,3 +1,4 @@
+import { isWarehouseRuntime, warehouseHistory } from "@/lib/warehouse";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
@@ -38,6 +39,7 @@ function startOfMonth(date: Date) {
 // ---------------------------------------------------------------------------
 
 async function loadHistoricalMrr(months = 6): Promise<{ month: string; mrr: number }[]> {
+  if (isWarehouseRuntime()) return (await warehouseHistory()).slice(-months);
   const subscriptions = await prisma.subscription.findMany({
     include: { customer: true, plan: true },
   });

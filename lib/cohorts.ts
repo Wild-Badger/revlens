@@ -1,3 +1,4 @@
+import { isWarehouseRuntime, warehouseCohorts, warehousePlanRetention, warehouseSegmentRetention } from "@/lib/warehouse";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
@@ -93,6 +94,7 @@ export async function getLogoRetentionCohorts(filters?: {
   segment?: string;
   plan?: string;
 }): Promise<CohortData> {
+  if (isWarehouseRuntime()) return warehouseCohorts("logo", filters);
   const asOf = await getAsOf();
   const subscriptions = (await loadSubscriptions()).filter((s) => s.startedAt <= asOf);
   const filtered = subscriptions.filter((s) => matchesFilters(s, filters));
@@ -178,6 +180,7 @@ export async function getRevenueRetentionCohorts(filters?: {
   segment?: string;
   plan?: string;
 }): Promise<CohortData> {
+  if (isWarehouseRuntime()) return warehouseCohorts("revenue", filters);
   const asOf = await getAsOf();
   const subscriptions = (await loadSubscriptions()).filter((s) => s.startedAt <= asOf);
   const filtered = subscriptions.filter((s) => matchesFilters(s, filters));
@@ -265,6 +268,7 @@ export async function getRevenueRetentionCohorts(filters?: {
 // ---------------------------------------------------------------------------
 
 export async function getPlanRetention(): Promise<PlanRetention[]> {
+  if (isWarehouseRuntime()) return warehousePlanRetention();
   const now = await getAsOf();
   const subscriptions = (await loadSubscriptions()).filter((s) => s.startedAt <= now);
 
@@ -306,6 +310,7 @@ export async function getPlanRetention(): Promise<PlanRetention[]> {
 // ---------------------------------------------------------------------------
 
 export async function getSegmentRetention(): Promise<SegmentRetention[]> {
+  if (isWarehouseRuntime()) return warehouseSegmentRetention();
   const now = await getAsOf();
   const subscriptions = (await loadSubscriptions()).filter((s) => s.startedAt <= now);
 

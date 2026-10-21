@@ -1,3 +1,4 @@
+import { AnalyticsStatus } from "@/components/analytics-status";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -35,7 +36,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full bg-neutral-950 text-neutral-100 font-sans">
         <SessionProvider>
-          <DashboardShell>{children}</DashboardShell>
+          <DashboardShell><AnalyticsStatus />{children}</DashboardShell>
         </SessionProvider>
       </body>
     </html>

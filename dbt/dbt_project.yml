@@ -1,0 +1,15 @@
+name: revlens
+version: '2.0.0'
+config-version: 2
+profile: revlens
+model-paths: [models]
+snapshot-paths: [snapshots]
+test-paths: [tests]
+macro-paths: [macros]
+models:
+  revlens:
+    +materialized: view
+    +schema: analytics
+snapshots:
+  revlens:
+    +schema: analytics_history

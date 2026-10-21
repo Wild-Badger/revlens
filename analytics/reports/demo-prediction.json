@@ -1,0 +1,587 @@
+{
+  "format": "revlens-prediction",
+  "schemaVersion": 1,
+  "methodVersion": "revlens-monthly-v1",
+  "generatedAt": "2026-10-21T00:25:27.138226+00:00",
+  "dataHash": "3b082ecd6bf3d3fae7273b63e69c58df45627448d564bc95f49324792e3ce6b1",
+  "source": "Fictional subscriptions \u00b7 seed 42",
+  "target": "mrr",
+  "currency": "USD",
+  "revision": 2,
+  "asOf": "2026-09-30T23:59:59.999000+00:00",
+  "history": [
+    {
+      "month": "2022-10-01",
+      "value": 3878.0
+    },
+    {
+      "month": "2022-11-01",
+      "value": 3789.0
+    },
+    {
+      "month": "2022-12-01",
+      "value": 3775.65
+    },
+    {
+      "month": "2023-01-01",
+      "value": 3656.65
+    },
+    {
+      "month": "2023-02-01",
+      "value": 3715.65
+    },
+    {
+      "month": "2023-03-01",
+      "value": 3625.65
+    },
+    {
+      "month": "2023-04-01",
+      "value": 3702.55
+    },
+    {
+      "month": "2023-05-01",
+      "value": 4350.45
+    },
+    {
+      "month": "2023-06-01",
+      "value": 4329.76
+    },
+    {
+      "month": "2023-07-01",
+      "value": 5088.14
+    },
+    {
+      "month": "2023-08-01",
+      "value": 6220.79
+    },
+    {
+      "month": "2023-09-01",
+      "value": 5459.54
+    },
+    {
+      "month": "2023-10-01",
+      "value": 6206.54
+    },
+    {
+      "month": "2023-11-01",
+      "value": 6325.54
+    },
+    {
+      "month": "2023-12-01",
+      "value": 7083.54
+    },
+    {
+      "month": "2024-01-01",
+      "value": 6891.96
+    },
+    {
+      "month": "2024-02-01",
+      "value": 7377.96
+    },
+    {
+      "month": "2024-03-01",
+      "value": 6787.96
+    },
+    {
+      "month": "2024-04-01",
+      "value": 7622.36
+    },
+    {
+      "month": "2024-05-01",
+      "value": 7836.92
+    },
+    {
+      "month": "2024-06-01",
+      "value": 8780.85
+    },
+    {
+      "month": "2024-07-01",
+      "value": 8856.21
+    },
+    {
+      "month": "2024-08-01",
+      "value": 9460.43
+    },
+    {
+      "month": "2024-09-01",
+      "value": 9487.05
+    },
+    {
+      "month": "2024-10-01",
+      "value": 10525.24
+    },
+    {
+      "month": "2024-11-01",
+      "value": 11009.05
+    },
+    {
+      "month": "2024-12-01",
+      "value": 11996.98
+    },
+    {
+      "month": "2025-01-01",
+      "value": 12098.41
+    },
+    {
+      "month": "2025-02-01",
+      "value": 12422.65
+    },
+    {
+      "month": "2025-03-01",
+      "value": 13855.88
+    },
+    {
+      "month": "2025-04-01",
+      "value": 14020.02
+    },
+    {
+      "month": "2025-05-01",
+      "value": 15298.69
+    },
+    {
+      "month": "2025-06-01",
+      "value": 15145.05
+    },
+    {
+      "month": "2025-07-01",
+      "value": 14052.9
+    },
+    {
+      "month": "2025-08-01",
+      "value": 14511.26
+    },
+    {
+      "month": "2025-09-01",
+      "value": 14753.66
+    },
+    {
+      "month": "2025-10-01",
+      "value": 14231.52
+    },
+    {
+      "month": "2025-11-01",
+      "value": 15058.41
+    },
+    {
+      "month": "2025-12-01",
+      "value": 15553.31
+    },
+    {
+      "month": "2026-01-01",
+      "value": 15947.71
+    },
+    {
+      "month": "2026-02-01",
+      "value": 16066.3
+    },
+    {
+      "month": "2026-03-01",
+      "value": 16121.65
+    },
+    {
+      "month": "2026-04-01",
+      "value": 15423.39
+    },
+    {
+      "month": "2026-05-01",
+      "value": 15841.94
+    },
+    {
+      "month": "2026-06-01",
+      "value": 15925.91
+    },
+    {
+      "month": "2026-07-01",
+      "value": 16436.64
+    },
+    {
+      "month": "2026-08-01",
+      "value": 16295.59
+    },
+    {
+      "month": "2026-09-01",
+      "value": 16277.88
+    }
+  ],
+  "coverage": {
+    "confirmed": true,
+    "completeMonths": 48,
+    "requiredMonths": 24,
+    "start": "2022-10-01",
+    "end": "2026-09-01"
+  },
+  "forecast": [
+    {
+      "horizon": 1,
+      "predicted": 16434.85,
+      "lower80": 15758.72,
+      "upper80": 17110.97,
+      "lower95": 15400.8,
+      "upper95": 17468.89,
+      "month": "2026-10-01"
+    },
+    {
+      "horizon": 2,
+      "predicted": 16544.16,
+      "lower80": 15647.69,
+      "upper80": 17440.62,
+      "lower95": 15173.14,
+      "upper95": 17915.18,
+      "month": "2026-11-01"
+    },
+    {
+      "horizon": 3,
+      "predicted": 16651.17,
+      "lower80": 15542.05,
+      "upper80": 17760.28,
+      "lower95": 14954.93,
+      "upper95": 18347.41,
+      "month": "2026-12-01"
+    }
+  ],
+  "warnings": [
+    "80% and 95% are nominal model-based intervals, not guaranteed coverage.",
+    "The final six months provide only six, five and four test predictions at horizons 1, 2 and 3.",
+    "Univariate trend forecasting does not estimate individual churn or causal effects.",
+    "Test horizons overlap; their errors are not independent. A zero-variation history gives zero-width conditional intervals and does not rule out a regime change."
+  ],
+  "status": "ready",
+  "selectedModel": "ets_damped",
+  "selectedLabel": "ETS \u00b7 damped trend",
+  "validation": {
+    "initialTrainingMonths": 12,
+    "developmentEnd": "2026-03-01",
+    "selection": "Lowest rolling-origin MAE on development data; fixed simpler-first tie break",
+    "candidates": [
+      {
+        "model": "naive",
+        "label": "Last observed value",
+        "status": "evaluated",
+        "count": 84,
+        "mae": 875.65,
+        "wape": 0.075899,
+        "byHorizon": [
+          {
+            "horizon": 1,
+            "count": 28,
+            "mae": 556.6854,
+            "wape": 0.049768
+          },
+          {
+            "horizon": 2,
+            "count": 28,
+            "mae": 888.3775,
+            "wape": 0.076997
+          },
+          {
+            "horizon": 3,
+            "count": 28,
+            "mae": 1181.8871,
+            "wape": 0.099422
+          }
+        ],
+        "failures": []
+      },
+      {
+        "model": "ets_level",
+        "label": "Exponential smoothing \u00b7 level",
+        "status": "evaluated",
+        "count": 84,
+        "mae": 890.7851,
+        "wape": 0.077211,
+        "byHorizon": [
+          {
+            "horizon": 1,
+            "count": 28,
+            "mae": 568.28,
+            "wape": 0.050804
+          },
+          {
+            "horizon": 2,
+            "count": 28,
+            "mae": 907.5807,
+            "wape": 0.078662
+          },
+          {
+            "horizon": 3,
+            "count": 28,
+            "mae": 1196.4946,
+            "wape": 0.10065
+          }
+        ],
+        "failures": []
+      },
+      {
+        "model": "ets_damped",
+        "label": "ETS \u00b7 damped trend",
+        "status": "evaluated",
+        "count": 84,
+        "mae": 680.6552,
+        "wape": 0.058997,
+        "byHorizon": [
+          {
+            "horizon": 1,
+            "count": 28,
+            "mae": 493.0161,
+            "wape": 0.044076
+          },
+          {
+            "horizon": 2,
+            "count": 28,
+            "mae": 669.7396,
+            "wape": 0.058048
+          },
+          {
+            "horizon": 3,
+            "count": 28,
+            "mae": 879.21,
+            "wape": 0.07396
+          }
+        ],
+        "failures": []
+      }
+    ]
+  },
+  "test": {
+    "start": "2026-04-01",
+    "end": "2026-09-01",
+    "selected": {
+      "count": 15,
+      "mae": 339.678,
+      "wape": 0.021062,
+      "byHorizon": [
+        {
+          "horizon": 1,
+          "count": 6,
+          "mae": 316.6367,
+          "wape": 0.019748
+        },
+        {
+          "horizon": 2,
+          "count": 5,
+          "mae": 344.404,
+          "wape": 0.021318
+        },
+        {
+          "horizon": 3,
+          "count": 4,
+          "mae": 368.3325,
+          "wape": 0.022689
+        }
+      ]
+    },
+    "baseline": {
+      "count": 15,
+      "mae": 386.0167,
+      "wape": 0.023935,
+      "byHorizon": [
+        {
+          "horizon": 1,
+          "count": 6,
+          "mae": 311.7117,
+          "wape": 0.019441
+        },
+        {
+          "horizon": 2,
+          "count": 5,
+          "mae": 381.074,
+          "wape": 0.023588
+        },
+        {
+          "horizon": 3,
+          "count": 4,
+          "mae": 503.6525,
+          "wape": 0.031025
+        }
+      ]
+    },
+    "intervalCoverage": [
+      {
+        "horizon": 1,
+        "count": 6,
+        "coverage80": 0.833333,
+        "coverage95": 1.0
+      },
+      {
+        "horizon": 2,
+        "count": 5,
+        "coverage80": 1.0,
+        "coverage95": 1.0
+      },
+      {
+        "horizon": 3,
+        "count": 4,
+        "coverage80": 1.0,
+        "coverage95": 1.0
+      }
+    ],
+    "predictions": [
+      {
+        "horizon": 1,
+        "predicted": 16397.41,
+        "lower80": 15707.35,
+        "upper80": 17087.47,
+        "lower95": 15342.06,
+        "upper95": 17452.77,
+        "origin": "2026-03-01",
+        "month": "2026-04-01",
+        "actual": 15423.39
+      },
+      {
+        "horizon": 2,
+        "predicted": 16618.46,
+        "lower80": 15705.38,
+        "upper80": 17531.54,
+        "lower95": 15222.03,
+        "upper95": 18014.9,
+        "origin": "2026-03-01",
+        "month": "2026-05-01",
+        "actual": 15841.94
+      },
+      {
+        "horizon": 3,
+        "predicted": 16835.09,
+        "lower80": 15706.4,
+        "upper80": 17963.79,
+        "lower95": 15108.9,
+        "upper95": 18561.29,
+        "origin": "2026-03-01",
+        "month": "2026-06-01",
+        "actual": 15925.91
+      },
+      {
+        "horizon": 1,
+        "predicted": 15752.09,
+        "lower80": 15044.14,
+        "upper80": 16460.03,
+        "lower95": 14669.38,
+        "upper95": 16834.8,
+        "origin": "2026-04-01",
+        "month": "2026-05-01",
+        "actual": 15841.94
+      },
+      {
+        "horizon": 2,
+        "predicted": 15865.75,
+        "lower80": 14922.16,
+        "upper80": 16809.34,
+        "lower95": 14422.66,
+        "upper95": 17308.85,
+        "origin": "2026-04-01",
+        "month": "2026-06-01",
+        "actual": 15925.91
+      },
+      {
+        "horizon": 3,
+        "predicted": 15976.82,
+        "lower80": 14805.46,
+        "upper80": 17148.18,
+        "lower95": 14185.38,
+        "upper95": 17768.26,
+        "origin": "2026-04-01",
+        "month": "2026-07-01",
+        "actual": 16436.64
+      },
+      {
+        "horizon": 1,
+        "predicted": 15951.47,
+        "lower80": 15251.43,
+        "upper80": 16651.52,
+        "lower95": 14880.85,
+        "upper95": 17022.1,
+        "origin": "2026-05-01",
+        "month": "2026-06-01",
+        "actual": 15925.91
+      },
+      {
+        "horizon": 2,
+        "predicted": 16076.14,
+        "lower80": 15145.76,
+        "upper80": 17006.51,
+        "lower95": 14653.26,
+        "upper95": 17499.02,
+        "origin": "2026-05-01",
+        "month": "2026-07-01",
+        "actual": 16436.64
+      },
+      {
+        "horizon": 3,
+        "predicted": 16198.16,
+        "lower80": 15045.35,
+        "upper80": 17350.97,
+        "lower95": 14435.09,
+        "upper95": 17961.23,
+        "origin": "2026-05-01",
+        "month": "2026-08-01",
+        "actual": 16295.59
+      },
+      {
+        "horizon": 1,
+        "predicted": 16051.62,
+        "lower80": 15359.38,
+        "upper80": 16743.86,
+        "lower95": 14992.93,
+        "upper95": 17110.31,
+        "origin": "2026-06-01",
+        "month": "2026-07-01",
+        "actual": 16436.64
+      },
+      {
+        "horizon": 2,
+        "predicted": 16169.48,
+        "lower80": 15249.36,
+        "upper80": 17089.6,
+        "lower95": 14762.28,
+        "upper95": 17576.68,
+        "origin": "2026-06-01",
+        "month": "2026-08-01",
+        "actual": 16295.59
+      },
+      {
+        "horizon": 3,
+        "predicted": 16284.78,
+        "lower80": 15144.28,
+        "upper80": 17425.28,
+        "lower95": 14540.53,
+        "upper95": 18029.03,
+        "origin": "2026-06-01",
+        "month": "2026-09-01",
+        "actual": 16277.88
+      },
+      {
+        "horizon": 1,
+        "predicted": 16517.66,
+        "lower80": 15829.3,
+        "upper80": 17206.02,
+        "lower95": 15464.91,
+        "upper95": 17570.41,
+        "origin": "2026-07-01",
+        "month": "2026-08-01",
+        "actual": 16295.59
+      },
+      {
+        "horizon": 2,
+        "predicted": 16676.61,
+        "lower80": 15762.24,
+        "upper80": 17590.98,
+        "lower95": 15278.2,
+        "upper95": 18075.01,
+        "origin": "2026-07-01",
+        "month": "2026-09-01",
+        "actual": 16277.88
+      },
+      {
+        "horizon": 1,
+        "predicted": 16481.18,
+        "lower80": 15798.95,
+        "upper80": 17163.41,
+        "lower95": 15437.79,
+        "upper95": 17524.57,
+        "origin": "2026-08-01",
+        "month": "2026-09-01",
+        "actual": 16277.88
+      }
+    ]
+  },
+  "intervalMethod": "ETS additive-error model intervals; naive uses random-walk innovation variance. Bounds clipped at zero."
+}

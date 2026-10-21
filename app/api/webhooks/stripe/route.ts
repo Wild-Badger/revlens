@@ -3,6 +3,7 @@ import { verifyStripeSignature, processStripeEvent, handlesStripeEvent } from '@
 import type { StripeEvent } from '@/lib/integrations/types';
 
 export async function POST(request: NextRequest) {
+  if (process.env.LOCAL_WORKSPACE_MODE === "true") return NextResponse.json({ error: "Use the reviewed CSV import to preserve dataset revisions and captured history" }, { status: 410 });
   try {
     const signature = request.headers.get('stripe-signature') || '';
     const rawBody = await request.text();

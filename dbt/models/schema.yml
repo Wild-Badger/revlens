@@ -1,0 +1,20 @@
+version: 2
+models:
+  - name: stg_app__customers
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+  - name: stg_app__plans
+    columns:
+      - name: plan_id
+        data_tests: [unique, not_null]
+  - name: stg_app__subscriptions
+    columns:
+      - name: subscription_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_app__customers')
+                field: customer_id

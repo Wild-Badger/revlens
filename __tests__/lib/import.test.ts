@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type PrismaClient } from "@prisma/client";
-import { detectColumns, IMPORT_COLUMNS, MAX_IMPORT_BYTES, parseCSV, TEMPLATE_CSV, validateImportCSV } from "@/lib/import/csv-validator";
+import { detectColumns, IMPORT_COLUMNS, MAX_IMPORT_BYTES, parseCSV, planSourceKey, TEMPLATE_CSV, validateImportCSV } from "@/lib/import/csv-validator";
 import { importCustomersData, stableImportId } from "@/lib/import/import-service";
 import { reuseColumnMappings } from "@/lib/import/column-mappings";
 
@@ -28,6 +28,14 @@ function historyFixture() {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("canonical dated CSV contract", () => {
+  it("keeps explicit plan identity across catalog changes and rejects conflicting catalog facts", () => {
+    const original = { plan_id: "catalog-a", plan_name: "Starter", billing_interval: "monthly" as const };
+    expect(planSourceKey(original)).toBe(planSourceKey({ ...original, plan_name: "Renamed", billing_interval: "annual" }));
+    const { headers, rows } = fixture(); headers.push("plan_id");
+    rows.forEach((row, index) => row.push(index < 2 ? "catalog-a" : "catalog-b"));
+    rows[1][headers.indexOf("billing_interval")] = "annual";
+    expect(validateImportCSV(encode(headers, rows)).errors.some(error => error.field === "plan_id")).toBe(true);
+  });
   it("validates the downloadable fixture and reconciles its exact totals", () => {
     const result = validateImportCSV(TEMPLATE_CSV);
     expect(result.errors).toEqual([]);
@@ -109,19 +117,20 @@ describe("canonical dated CSV contract", () => {
 
 function transactionStore(failInvoices = false) {
   type RecordValue = Record<string, unknown>;
-  const original: Record<string, RecordValue[]> = { customer: [{ id: "prior-customer" }], plan: [{ id: "prior-plan" }], invoice: [], payment: [], productEvent: [], subscription: [], datasetMetadata: [{ id: "local" }] };
+  const original: Record<string, RecordValue[]> = { customer: [{ id: "prior-customer" }], plan: [{ id: "prior-plan" }], invoice: [], payment: [], productEvent: [], subscription: [], datasetMetadata: [{ id: "local", pipelineStatus: "ready", revision: 0, sourceId: "92b02e13-2856-4a84-90c3-dedbefd24a56", asOf: new Date("2020-01-01Z") }] };
   let state = structuredClone(original);
   const transaction = vi.fn(async (run: (tx: unknown) => Promise<void>) => {
     const working = Object.fromEntries(Object.entries(state).map(([name, records]) => [name, records.map(record => ({ ...record }))]));
     const tx: Record<string, unknown> = { $executeRaw: vi.fn() };
     for (const name of Object.keys(working)) tx[name] = {
+      findUnique: vi.fn(async () => working[name][0] ?? null),
       deleteMany: vi.fn(async () => { working[name] = []; }),
       createMany: vi.fn(async ({ data }: { data: RecordValue[] }) => { if (failInvoices && name === "invoice") throw new Error("synthetic storage failure"); working[name].push(...data); }),
       upsert: vi.fn(async ({ create }: { create: RecordValue }) => { working[name] = [create]; }),
     };
     await run(tx); state = working;
   });
-  return { prisma: { $transaction: transaction } as unknown as PrismaClient, transaction, state: () => state, original };
+  return { prisma: { $transaction: transaction } as unknown as PrismaClient, transaction, state: () => state, markReady: () => { state.datasetMetadata[0].pipelineStatus = "ready"; }, original };
 }
 function localMode() { vi.stubEnv("LOCAL_WORKSPACE_MODE", "true"); vi.stubEnv("DEMO_MODE", "false"); vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false"); }
 
@@ -140,8 +149,9 @@ describe("all-or-nothing dedicated dataset replacement", () => {
       expect(interval.startedAt).toEqual(invoice.invoiceDate);
       expect(interval.currentMrr).toEqual(invoice.amount);
     }
+    store.markReady();
     await importCustomersData(store.prisma, validateImportCSV(encode(headers, [...rows].reverse())));
-    expect(store.state()).toEqual(first);
+    for (const table of ["customer","plan","subscription","invoice","payment","productEvent"]) expect(store.state()[table]).toEqual(first[table]);
   });
   it("records current churn from the latest interval, keeping the earliest conversion date", async () => {
     localMode(); const store = transactionStore(); const { headers, rows } = historyFixture();
@@ -168,8 +178,10 @@ describe("all-or-nothing dedicated dataset replacement", () => {
   it("reimporting an equivalent file does not accumulate invoices or events", async () => {
     localMode(); const store = transactionStore(); const validation = validateImportCSV(TEMPLATE_CSV);
     await importCustomersData(store.prisma, validation); const first = store.state();
+    store.markReady();
     await importCustomersData(store.prisma, validation);
-    expect(store.state()).toEqual(first);
+    for (const table of ["customer","plan","subscription","invoice","payment","productEvent"]) expect(store.state()[table]).toEqual(first[table]);
+    expect(store.state().datasetMetadata[0].revision).toBe(Number(first.datasetMetadata[0].revision)+1);
     expect(store.state().invoice).toHaveLength(3); expect(store.state().productEvent).toHaveLength(4);
     expect(stableImportId("customer", "00000000-0000-4000-8000-000000000001")).toBe("00000000-0000-4000-8000-000000000001");
   });

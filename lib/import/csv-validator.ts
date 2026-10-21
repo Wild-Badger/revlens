@@ -16,6 +16,9 @@ export const IMPORT_COLUMNS = [
   ["currency", true, "USD only; no currency conversion is performed"],
   ["customer_created_at", true, "Actual customer creation date: YYYY-MM-DD"],
   ["subscription_id", false, "Stable interval ID; use a different ID for each price/plan interval or reactivation"],
+  ["plan_id", false, "Stable catalog plan ID; recommended to track renames with SCD2"],
+  ["plan_base_price", false, "Optional actual catalog base price in USD; blank stays unknown"],
+  ["plan_seat_price", false, "Optional actual catalog seat price in USD; blank stays unknown"],
   ["plan_name", false, "Exact plan name; required for a subscription"],
   ["billing_interval", false, "monthly or annual; MRR must still be monthly"],
   ["seats", false, "Positive integer; required for a subscription"],
@@ -50,7 +53,7 @@ export const CustomerCsvRow = z.object({
   status: z.enum(["lead", "active", "churned", "reactivated"]),
   as_of: date, currency: z.literal("USD", { error: "Only USD is supported; do not relabel another currency" }),
   customer_created_at: date,
-  subscription_id: optionalText, plan_name: optionalText, billing_interval: z.enum(["monthly", "annual"]).optional(),
+  subscription_id: optionalText, plan_id: optionalText, plan_base_price: money.optional(), plan_seat_price: money.optional(), plan_name: optionalText, billing_interval: z.enum(["monthly", "annual"]).optional(),
   seats: integer.pipe(z.number().max(100000)).optional(), mrr: money.optional(),
   subscription_started_at: date.optional(), subscription_ended_at: date.optional(),
   invoice_id: optionalText, invoice_amount: money.optional(),
@@ -62,7 +65,7 @@ export const CustomerCsvRow = z.object({
   const error = (field: ImportColumn, message: string) => ctx.addIssue({ code: "custom", path: [field], message });
   if (row.as_of > new Date().toISOString().slice(0, 10)) error("as_of", "Observation date cannot be in the future");
   const subFields = ["plan_name", "billing_interval", "seats", "mrr", "subscription_started_at"] as const;
-  const hasSub = [...subFields, "subscription_ended_at" as const, "subscription_id" as const].some(field => row[field] !== undefined);
+  const hasSub = [...subFields, "subscription_ended_at" as const, "subscription_id" as const, "plan_id" as const, "plan_base_price" as const, "plan_seat_price" as const].some(field => row[field] !== undefined);
   if (hasSub) {
     for (const field of subFields) if (row[field] === undefined) error(field, "Required for a subscription");
     if (row.status === "lead") error("status", "A lead cannot have a subscription in this format");
@@ -87,6 +90,7 @@ export const CustomerCsvRow = z.object({
   if (row.event_date && row.event_date < row.customer_created_at) error("event_date", "Event cannot precede customer creation");
 });
 export type CustomerCsvRow = z.infer<typeof CustomerCsvRow>;
+export const planSourceKey = (row: Pick<CustomerCsvRow, "plan_id" | "plan_name" | "billing_interval">) => JSON.stringify(row.plan_id ? [row.plan_id] : [row.plan_name, row.billing_interval]);
 // A blank ID preserves v1 single-interval identity; explicit IDs distinguish dated changes.
 export const subscriptionSourceKey = (row: CustomerCsvRow) => JSON.stringify([row.customer_id, row.subscription_id ?? null]);
 export interface ImportValidationResult {
@@ -162,11 +166,12 @@ export function validateImportCSV(content: string, mappings?: ColumnMappings): I
   const customers = new Map<string, string>(), subscriptions = new Map<string, CustomerCsvRow>();
   const customerRows = new Map<string, CustomerCsvRow>();
   const subscriptionLines = new Map<string, number>();
+  const plans = new Map<string, CustomerCsvRow>();
   const invoices = new Map<string, CustomerCsvRow>(), events = new Map<string, CustomerCsvRow>();
   let asOf: string | null = null;
   const signature = (row: CustomerCsvRow, fields: readonly (keyof CustomerCsvRow)[]) => JSON.stringify(fields.map(field => row[field] ?? null));
   const customerFields = ["name", "domain", "industry", "company_size", "country", "acquisition_channel", "status", "customer_created_at"] as const;
-  const subFields = ["plan_name", "billing_interval", "seats", "mrr", "subscription_started_at", "subscription_ended_at"] as const;
+  const subFields = ["plan_id", "plan_name", "billing_interval", "seats", "mrr", "subscription_started_at", "subscription_ended_at"] as const;
   const duplicate = (map: Map<string, CustomerCsvRow>, key: string, data: CustomerCsvRow, fields: readonly (keyof CustomerCsvRow)[], field: string, line: number) => {
     const previous = map.get(key);
     if (previous && signature(previous, fields) !== signature(data, fields)) errors.push({ row: line, field, message: "Conflicting records for the same source ID. Use a unique subscription_id for each dated price/plan interval; repeated IDs must have identical facts" });
@@ -186,6 +191,7 @@ export function validateImportCSV(content: string, mappings?: ColumnMappings): I
     else customers.set(data.customer_id, customerSignature);
     customerRows.set(data.customer_id, data);
     if (data.plan_name) {
+      duplicate(plans, planSourceKey(data), data, ["plan_name","billing_interval","plan_base_price","plan_seat_price"], "plan_id", rowNumber);
       const key = subscriptionSourceKey(data);
       duplicate(subscriptions, key, data, subFields, "subscription_started_at", rowNumber);
       subscriptionLines.set(key, rowNumber);

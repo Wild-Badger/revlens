@@ -3,6 +3,7 @@ import { verifySalesforceSignature, processSalesforceEvent, handlesSalesforceEve
 import type { SalesforceEvent } from '@/lib/integrations/types';
 
 export async function POST(request: NextRequest) {
+  if (process.env.LOCAL_WORKSPACE_MODE === "true") return NextResponse.json({ error: "Use the reviewed CSV import to preserve dataset revisions and captured history" }, { status: 410 });
   try {
     const signature = request.headers.get('x-salesforce-signature') || '';
     const rawBody = await request.text();

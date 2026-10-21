@@ -35,8 +35,8 @@ model Plan {
   id                String   @id @default(uuid())
   name              String
   billingInterval   String   @map("billing_interval")
-  basePrice         Decimal  @map("base_price") @db.Decimal(12, 2)
-  seatPrice         Decimal  @map("seat_price") @db.Decimal(12, 2)
+  basePrice         Decimal? @map("base_price") @db.Decimal(12, 2)
+  seatPrice         Decimal? @map("seat_price") @db.Decimal(12, 2)
   createdAt         DateTime @default(now()) @map("created_at")
 
   subscriptions Subscription[]
@@ -178,6 +178,13 @@ model DatasetMetadata {
   currency   String   @default("USD")
   importedAt DateTime @default(now()) @map("imported_at")
   rowCount   Int      @map("row_count")
+  sourceId   String   @default(uuid()) @map("source_id")
+  sourceName String   @default("Local dataset") @map("source_name")
+  historyStart DateTime? @map("history_start") @db.Date
+  historyComplete Boolean @default(false) @map("history_complete")
+  revision Int @default(0)
+  analyticsRevision Int @default(-1) @map("analytics_revision")
+  pipelineStatus String @default("pending") @map("pipeline_status")
 
   @@map("dataset_metadata")
 }
