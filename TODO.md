@@ -6,4 +6,5 @@
 - [x] Local Python service, guarded refresh and Windows launcher
 - [x] Statistical forecast UI, scenarios, SCD2 history and static demo
 - [x] Integration/browser checks, CI definition, documentation and rebuilt portfolio materials
-- [ ] Publish verified repository and Pages; Upwork remains pending explicit greenlight
+- [x] Publish verified repository and Pages; confirmed by HTTPS after successful CI
+- [ ] Upwork upload — intentionally awaiting explicit owner greenlight, outside this release

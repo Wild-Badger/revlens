@@ -2,6 +2,8 @@
 
 Checks used isolated fictional databases, never private business records or billing credentials.
 
+The [final Linux CI and publication run](https://github.com/Wild-Badger/revlens/actions/runs/39524468229) passed for code revision `8a57af3`. Pages build `9185550aac7dc55d66ae135b91e18b5443013cf5` completed successfully. The connected Chrome extension verified the public HTTPS forecast: 48 months, selected damped-trend ETS, MAE $339.68 against $386.02 baseline, with no browser console errors. Final documentation-only changes do not rebuild an unchanged static application.
+
 | Check | Observed result | Scope |
 | --- | --- | --- |
 | Locked installs | Passed | pnpm standalone install; uv Python 3.12 environment |
