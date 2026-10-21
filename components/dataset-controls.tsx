@@ -21,7 +21,8 @@ export function DatasetControls() {
       const response = await fetch("/api/dataset/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation: "REPLACE_LOCAL_DATASET", backup }) });
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : "Backup was rejected. The previous dataset was preserved.");
-      setMessage("Backup restored. Open the overview or customers to analyse the restored snapshot.");
+      setMessage(result.analyticsStatus === "pending" ? "Backup restored; analytics pending. Start the Python service and retry analytics refresh above." : "Backup restored, including captured attribute history. Open the overview to analyse it.");
+      window.dispatchEvent(new Event("revlens:dataset-changed"));
       setConfirmed(false);
       setFile(null);
       router.refresh();
@@ -32,7 +33,7 @@ export function DatasetControls() {
 
   return <section className="space-y-4 rounded-lg border border-neutral-800 p-5">
     <h2 className="text-lg font-semibold">Backup and restore</h2>
-    <p className="text-sm leading-6 text-neutral-300">Download a full business-data backup before replacing your dataset. It includes the snapshot date and all supplied records, and excludes accounts, passwords and sessions.</p>
+    <p className="text-sm leading-6 text-neutral-300">Download a full business-data backup before replacing your dataset. Version 2 includes the observation date, supplied records, coverage, source identity and captured SCD2 versions, and excludes accounts, passwords and sessions.</p>
     <DownloadButton className="inline-block rounded-md border border-neutral-700 px-4 py-2 text-sm underline" href="/api/dataset/backup" filename="revlens-backup.json">Download full JSON backup</DownloadButton>
     <label className="block text-sm">Choose a RevLens JSON backup<input type="file" accept=".json,application/json" onChange={(event) => { setFile(event.target.files?.[0] ?? null); setConfirmed(false); setMessage(""); }} className="mt-2 block max-w-full rounded border border-neutral-700 p-2" /></label>
     <label className="flex items-start gap-3 text-sm leading-6"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1" />I understand that restoring replaces the current business dataset. I have saved the backup I need. My local sign-in account will be preserved.</label>

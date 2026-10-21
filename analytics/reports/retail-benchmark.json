@@ -1,0 +1,516 @@
+{
+  "format": "revlens-prediction",
+  "schemaVersion": 1,
+  "methodVersion": "revlens-monthly-v1",
+  "generatedAt": "2026-10-21T00:25:34.353340+00:00",
+  "dataHash": "2d0c5345e69dff19bbced10a66d3d2d8e5c2c2e0934f160becab5db33a0b8e18",
+  "source": "UCI Online Retail II",
+  "target": "net_invoiced_sales",
+  "currency": "GBP",
+  "revision": 0,
+  "asOf": "2011-11-30",
+  "history": [
+    {
+      "month": "2009-12-01",
+      "value": 799847.11
+    },
+    {
+      "month": "2010-01-01",
+      "value": 624032.89
+    },
+    {
+      "month": "2010-02-01",
+      "value": 533091.43
+    },
+    {
+      "month": "2010-03-01",
+      "value": 765848.76
+    },
+    {
+      "month": "2010-04-01",
+      "value": 644174.79
+    },
+    {
+      "month": "2010-05-01",
+      "value": 615322.83
+    },
+    {
+      "month": "2010-06-01",
+      "value": 679786.61
+    },
+    {
+      "month": "2010-07-01",
+      "value": 619268.15
+    },
+    {
+      "month": "2010-08-01",
+      "value": 656776.34
+    },
+    {
+      "month": "2010-09-01",
+      "value": 853650.43
+    },
+    {
+      "month": "2010-10-01",
+      "value": 1084094.22
+    },
+    {
+      "month": "2010-11-01",
+      "value": 1422654.64
+    },
+    {
+      "month": "2010-12-01",
+      "value": 1126445.47
+    },
+    {
+      "month": "2011-01-01",
+      "value": 560000.26
+    },
+    {
+      "month": "2011-02-01",
+      "value": 498062.65
+    },
+    {
+      "month": "2011-03-01",
+      "value": 683267.08
+    },
+    {
+      "month": "2011-04-01",
+      "value": 493207.12
+    },
+    {
+      "month": "2011-05-01",
+      "value": 723333.51
+    },
+    {
+      "month": "2011-06-01",
+      "value": 691123.12
+    },
+    {
+      "month": "2011-07-01",
+      "value": 681300.11
+    },
+    {
+      "month": "2011-08-01",
+      "value": 704804.63
+    },
+    {
+      "month": "2011-09-01",
+      "value": 1019687.62
+    },
+    {
+      "month": "2011-10-01",
+      "value": 1070704.67
+    },
+    {
+      "month": "2011-11-01",
+      "value": 1461756.25
+    }
+  ],
+  "coverage": {
+    "confirmed": true,
+    "completeMonths": 24,
+    "requiredMonths": 24,
+    "start": "2009-12-01",
+    "end": "2011-11-01"
+  },
+  "forecast": [
+    {
+      "horizon": 1,
+      "predicted": 1461756.25,
+      "lower80": 1179348.57,
+      "upper80": 1744163.93,
+      "lower95": 1029850.97,
+      "upper95": 1893661.53,
+      "month": "2011-12-01"
+    },
+    {
+      "horizon": 2,
+      "predicted": 1461756.25,
+      "lower80": 1062371.48,
+      "upper80": 1861141.02,
+      "lower95": 850949.95,
+      "upper95": 2072562.55,
+      "month": "2012-01-01"
+    },
+    {
+      "horizon": 3,
+      "predicted": 1461756.25,
+      "lower80": 972611.8,
+      "upper80": 1950900.7,
+      "lower95": 713674.36,
+      "upper95": 2209838.14,
+      "month": "2012-02-01"
+    }
+  ],
+  "warnings": [
+    "80% and 95% are nominal model-based intervals, not guaranteed coverage.",
+    "The final six months provide only six, five and four test predictions at horizons 1, 2 and 3.",
+    "Univariate trend forecasting does not estimate individual churn or causal effects.",
+    "Test horizons overlap; their errors are not independent. A zero-variation history gives zero-width conditional intervals and does not rule out a regime change."
+  ],
+  "status": "ready",
+  "selectedModel": "naive",
+  "selectedLabel": "Last observed value",
+  "validation": {
+    "initialTrainingMonths": 12,
+    "developmentEnd": "2011-05-01",
+    "selection": "Lowest rolling-origin MAE on development data; fixed simpler-first tie break",
+    "candidates": [
+      {
+        "model": "naive",
+        "label": "Last observed value",
+        "status": "evaluated",
+        "count": 12,
+        "mae": 365732.5292,
+        "wape": 0.585158,
+        "byHorizon": [
+          {
+            "horizon": 1,
+            "count": 4,
+            "mae": 277449.105,
+            "wape": 0.386989
+          },
+          {
+            "horizon": 2,
+            "count": 4,
+            "mae": 404789.8875,
+            "wape": 0.724606
+          },
+          {
+            "horizon": 3,
+            "count": 4,
+            "mae": 414958.595,
+            "wape": 0.692212
+          }
+        ],
+        "failures": []
+      },
+      {
+        "model": "ets_level",
+        "label": "Exponential smoothing \u00b7 level",
+        "status": "evaluated",
+        "count": 12,
+        "mae": 373503.7033,
+        "wape": 0.597591,
+        "byHorizon": [
+          {
+            "horizon": 1,
+            "count": 4,
+            "mae": 285228.6875,
+            "wape": 0.39784
+          },
+          {
+            "horizon": 2,
+            "count": 4,
+            "mae": 412544.245,
+            "wape": 0.738487
+          },
+          {
+            "horizon": 3,
+            "count": 4,
+            "mae": 422738.1775,
+            "wape": 0.705189
+          }
+        ],
+        "failures": []
+      },
+      {
+        "model": "ets_damped",
+        "label": "ETS \u00b7 damped trend",
+        "status": "evaluated",
+        "count": 12,
+        "mae": 591663.9792,
+        "wape": 0.946639,
+        "byHorizon": [
+          {
+            "horizon": 1,
+            "count": 4,
+            "mae": 415522.225,
+            "wape": 0.579574
+          },
+          {
+            "horizon": 2,
+            "count": 4,
+            "mae": 658610.1325,
+            "wape": 1.178965
+          },
+          {
+            "horizon": 3,
+            "count": 4,
+            "mae": 700859.58,
+            "wape": 1.169137
+          }
+        ],
+        "failures": []
+      }
+    ]
+  },
+  "test": {
+    "start": "2011-06-01",
+    "end": "2011-11-01",
+    "selected": {
+      "count": 15,
+      "mae": 234534.0127,
+      "wape": 0.237309,
+      "byHorizon": [
+        {
+          "horizon": 1,
+          "count": 6,
+          "mae": 137081.59,
+          "wape": 0.146107
+        },
+        {
+          "horizon": 2,
+          "count": 5,
+          "mae": 240414.218,
+          "wape": 0.24342
+        },
+        {
+          "horizon": 3,
+          "count": 4,
+          "mae": 373362.39,
+          "wape": 0.350826
+        }
+      ]
+    },
+    "baseline": {
+      "count": 15,
+      "mae": 234534.0127,
+      "wape": 0.237309,
+      "byHorizon": [
+        {
+          "horizon": 1,
+          "count": 6,
+          "mae": 137081.59,
+          "wape": 0.146107
+        },
+        {
+          "horizon": 2,
+          "count": 5,
+          "mae": 240414.218,
+          "wape": 0.24342
+        },
+        {
+          "horizon": 3,
+          "count": 4,
+          "mae": 373362.39,
+          "wape": 0.350826
+        }
+      ]
+    },
+    "intervalCoverage": [
+      {
+        "horizon": 1,
+        "count": 6,
+        "coverage80": 0.666667,
+        "coverage95": 1.0
+      },
+      {
+        "horizon": 2,
+        "count": 5,
+        "coverage80": 0.8,
+        "coverage95": 1.0
+      },
+      {
+        "horizon": 3,
+        "count": 4,
+        "coverage80": 0.75,
+        "coverage95": 0.75
+      }
+    ],
+    "predictions": [
+      {
+        "horizon": 1,
+        "predicted": 723333.51,
+        "lower80": 435001.37,
+        "upper80": 1011665.65,
+        "lower95": 282367.56,
+        "upper95": 1164299.46,
+        "origin": "2011-05-01",
+        "month": "2011-06-01",
+        "actual": 691123.12
+      },
+      {
+        "horizon": 2,
+        "predicted": 723333.51,
+        "lower80": 315570.29,
+        "upper80": 1131096.73,
+        "lower95": 99713.48,
+        "upper95": 1346953.54,
+        "origin": "2011-05-01",
+        "month": "2011-07-01",
+        "actual": 681300.11
+      },
+      {
+        "horizon": 3,
+        "predicted": 723333.51,
+        "lower80": 223927.6,
+        "upper80": 1222739.42,
+        "lower95": 0,
+        "upper95": 1487108.94,
+        "origin": "2011-05-01",
+        "month": "2011-08-01",
+        "actual": 704804.63
+      },
+      {
+        "horizon": 1,
+        "predicted": 691123.12,
+        "lower80": 410745.78,
+        "upper80": 971500.46,
+        "lower95": 262322.98,
+        "upper95": 1119923.26,
+        "origin": "2011-06-01",
+        "month": "2011-07-01",
+        "actual": 681300.11
+      },
+      {
+        "horizon": 2,
+        "predicted": 691123.12,
+        "lower80": 294609.69,
+        "upper80": 1087636.55,
+        "lower95": 84708.15,
+        "upper95": 1297538.09,
+        "origin": "2011-06-01",
+        "month": "2011-08-01",
+        "actual": 704804.63
+      },
+      {
+        "horizon": 3,
+        "predicted": 691123.12,
+        "lower80": 205495.32,
+        "upper80": 1176750.92,
+        "lower95": 0,
+        "upper95": 1433826.74,
+        "origin": "2011-06-01",
+        "month": "2011-09-01",
+        "actual": 1019687.62
+      },
+      {
+        "horizon": 1,
+        "predicted": 681300.11,
+        "lower80": 408385.57,
+        "upper80": 954214.65,
+        "lower95": 263913.33,
+        "upper95": 1098686.89,
+        "origin": "2011-07-01",
+        "month": "2011-08-01",
+        "actual": 704804.63
+      },
+      {
+        "horizon": 2,
+        "predicted": 681300.11,
+        "lower80": 295340.66,
+        "upper80": 1067259.56,
+        "lower95": 91026.07,
+        "upper95": 1271574.15,
+        "origin": "2011-07-01",
+        "month": "2011-09-01",
+        "actual": 1019687.62
+      },
+      {
+        "horizon": 3,
+        "predicted": 681300.11,
+        "lower80": 208598.26,
+        "upper80": 1154001.96,
+        "lower95": 0,
+        "upper95": 1404235.21,
+        "origin": "2011-07-01",
+        "month": "2011-10-01",
+        "actual": 1070704.67
+      },
+      {
+        "horizon": 1,
+        "predicted": 704804.63,
+        "lower80": 438715.18,
+        "upper80": 970894.08,
+        "lower95": 297855.93,
+        "upper95": 1111753.33,
+        "origin": "2011-08-01",
+        "month": "2011-09-01",
+        "actual": 1019687.62
+      },
+      {
+        "horizon": 2,
+        "predicted": 704804.63,
+        "lower80": 328497.31,
+        "upper80": 1081111.95,
+        "lower95": 129292.25,
+        "upper95": 1280317.01,
+        "origin": "2011-08-01",
+        "month": "2011-10-01",
+        "actual": 1070704.67
+      },
+      {
+        "horizon": 3,
+        "predicted": 704804.63,
+        "lower80": 243924.18,
+        "upper80": 1165685.08,
+        "lower95": 0,
+        "upper95": 1409660.46,
+        "origin": "2011-08-01",
+        "month": "2011-11-01",
+        "actual": 1461756.25
+      },
+      {
+        "horizon": 1,
+        "predicted": 1019687.62,
+        "lower80": 745486.14,
+        "upper80": 1293889.1,
+        "lower95": 600332.64,
+        "upper95": 1439042.6,
+        "origin": "2011-09-01",
+        "month": "2011-10-01",
+        "actual": 1070704.67
+      },
+      {
+        "horizon": 2,
+        "predicted": 1019687.62,
+        "lower80": 631908.16,
+        "upper80": 1407467.08,
+        "lower95": 426630.12,
+        "upper95": 1612745.12,
+        "origin": "2011-09-01",
+        "month": "2011-11-01",
+        "actual": 1461756.25
+      },
+      {
+        "horizon": 1,
+        "predicted": 1070704.67,
+        "lower80": 802445.11,
+        "upper80": 1338964.23,
+        "lower95": 660437.08,
+        "upper95": 1480972.26,
+        "origin": "2011-10-01",
+        "month": "2011-11-01",
+        "actual": 1461756.25
+      }
+    ]
+  },
+  "intervalMethod": "ETS additive-error model intervals; naive uses random-walk innovation variance. Bounds clipped at zero.",
+  "provenance": {
+    "target": "net_invoiced_sales",
+    "currency": "GBP",
+    "source": "UCI Online Retail II",
+    "sourceUrl": "https://archive.ics.uci.edu/dataset/502/online%2Bretail%2Bii",
+    "downloadUrl": "https://archive.ics.uci.edu/static/public/502/online%2Bretail%2Bii.zip",
+    "sourceSha256": "572e36277c2390fbfde10664750731e0a86f55e33470d91919085f0408e67bfb",
+    "license": "CC BY 4.0",
+    "attribution": "Chen, D. (2012). Online Retail II. UCI. https://doi.org/10.24432/C5CG6D",
+    "rules": [
+      "Signed quantity \u00d7 nonnegative unit price; returns included.",
+      "Rows with missing customer IDs remain: customer identity is not needed for aggregate sales.",
+      "Exact repeated lines retained: no trustworthy line ID is supplied.",
+      "December 2011 excluded because observation stops on December 9.",
+      "GBP sales are not USD MRR and are never imported as subscriptions."
+    ],
+    "counts": {
+      "sourceRows": 1067371,
+      "includedRows": 1041840,
+      "returnRowsIncluded": 22560,
+      "invalidNumericOrNegativePrice": 5,
+      "partialPeriodRowsExcluded": 25526
+    },
+    "aggregateSha256": "5ce05e8bd074a948aec05ed6d3dd2c5bb87de9325f93ac8c62f0d9e1a6b69fc5"
+  }
+}

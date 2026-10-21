@@ -1,3 +1,4 @@
+import { isWarehouseRuntime, warehouseMovements, warehouseSummary } from "@/lib/warehouse";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
@@ -92,6 +93,7 @@ async function loadSubscriptions(filters: MovementFilters = {}) {
 }
 
 export async function getRevenueMovements(filters: MovementFilters = {}) {
+  if (isWarehouseRuntime()) return warehouseMovements(filters);
   const asOf = await getAsOf();
   const cutoff = filters.to && filters.to < asOf ? filters.to : asOf;
   const subscriptions = (await loadSubscriptions(filters)).filter((subscription) =>
@@ -192,6 +194,7 @@ export async function getRevenueMovements(filters: MovementFilters = {}) {
 }
 
 export async function getRevenueSummary() {
+  if (isWarehouseRuntime()) return warehouseSummary();
   const subscriptions = await loadSubscriptions();
   const context = await getDatasetContext();
   const asOf = context.asOf;

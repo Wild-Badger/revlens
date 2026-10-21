@@ -1,30 +1,54 @@
-# Release verification — October 20, 2026
+# Predictive release verification â€” October 21, 2026
 
-The release was checked from a separate standalone installation with the committed package manifest and lockfile. It did not depend on the original parent workspace.
+Checks used isolated fictional databases, never private business records or billing credentials.
 
-| Check | Result | Scope |
+| Check | Observed result | Scope |
 | --- | --- | --- |
-| Frozen dependency install | Passed | Node.js, pnpm 10.32.1; install scripts disabled, Prisma generated explicitly |
-| TypeScript | Passed | Application, API, demo adapter and test sources |
-| Vitest | 180 tests passed in 22 files | Revenue/date boundaries, retention, customer evidence, imports, backup, auth/origin boundaries, themes and static adapter |
-| ESLint | No errors | 19 existing unused-symbol warnings in legacy/admin/test sources |
-| Next.js production build | Passed | Dedicated local workspace and PostgreSQL, all 42 routes generated |
-| Static production build | Passed | Vite; no database or credentials required by the published assets |
-| Dedicated PostgreSQL integration | 10 checks passed | Synthetic template import, repeat import, business-data backup/restore and transaction rollback after a genuine database failure |
-| Synthetic snapshot export | Passed | 60 fictional accounts, 66 intervals, 40 industry/plan scopes; date-filtered daily movements reconcile to the production monthly result |
-| Chrome UI | Passed for checked flows | Overview, customer search/reload/detail/Escape, theme persistence, editable forecast and scenario download |
-| Mobile viewport | Checked at 390 × 844 | Retention has compact KPIs and collapsed tables, with no page-level horizontal overflow |
+| Locked installs | Passed | pnpm standalone install; uv Python 3.12 environment |
+| TypeScript/Vitest | 182 tests passed in 22 files | Money/date boundaries, cohorts, import/backup, auth/origin guards and static forecast adapter |
+| Python unit checks | 5 passed | Temporal leakage, history validation, constant/zero series, candidate failures, deterministic engine and private API auth |
+| Python/PostgreSQL integration | Passed | Actual dbt build, raw/monthly reconciliation across 48 months, repeated/changed/deleted/reappearing customer and plan snapshots, failed-process retry |
+| Node/PostgreSQL integration | 9 checks passed | Pending barrier, unavailable service recovery, idempotence, changed attributes, v2 full restore, v1 unknown history, real database-error rollback, new-source isolation and stable catalog identity |
+| ESLint | 0 errors, 18 existing unused-symbol warnings | Application and test sources |
+| Next.js production build | Passed | Local environment; all 45 pages/routes generated; webpack supports linked standalone dependencies |
+| Static build/export | Passed | 60 fictional customers, 191 intervals, 24 scopes; raw movements reconcile to MRR $16,277.88 |
+| Live Python HTTP | Passed | Loopback health and authenticated report with 48 months and 3 predictions |
+| Launcher | Prerequisite/syntax check passed | New Python startup uses the same verified Uvicorn module; full owner-workspace launch was not rerun against user records |
+| Chrome extension | Checked | Statistical chart/tables, held-out errors, SCD2 current/superseded states, themes, keyboard tabs and reload persistence |
+| Mobile viewport | Checked at 390 Ã— 844 | Forecast readable, no page-level horizontal overflow; wide exact-value tables scroll locally |
+| Presentation | Rendered and inspected | Three-page PDF from structured copy/reports; ZIP contains only current media and copy |
 
-The demo's MRR is **$22,134**, with **36 active customers**, at the fixed September 30, 2026 snapshot. These are fictional values used to check calculation consistency, not business results.
+## Reproduce the database checks
 
-Changing scenario acquisition from 5% to 0%, while keeping churn and expansion at 2% each, produced a flat baseline: annual run rate after twelve months remained $265,608. This confirms that the control changes the calculation; it does not validate a predictive model.
+Configure a dedicated local PostgreSQL database named `revlens_demo`, with private connection settings in the environment. Do not seed a personal dataset. The fixture scripts reject unrelated populated databases. Install locked dependencies and deploy migrations first:
 
-The local integration uses only a dedicated known synthetic dataset. Its scripts refuse an unrecognized database or an unrelated populated dataset. No real customer files or third-party billing credentials were used.
+```sh
+uv sync --frozen --all-groups --python 3.12
+pnpm exec prisma generate
+pnpm db:deploy
+uv run python -m analytics.cli seed
+uv run python -m analytics.cli demo-history
+uv run python -m analytics.cli export-report
+uv run --group benchmark python -m analytics.cli benchmark
+```
 
-## Practical limits
+For static export set `DEMO_MODE=true`, `DEMO_AS_OF=2026-09-30T23:59:59.999Z` and `REV_ANALYTICS_ENABLED=true` in that shell, then run:
 
-- Tests and browser observations are implementation checks, not proof of customer adoption, accounting correctness for every billing model, or production security certification.
-- The public Pages app runs the analytics UI against exported fictional data. It has no owner login, private import endpoint, restore endpoint or hosted PostgreSQL server.
-- The full local application is single-operator and USD-only. Its importer supports non-overlapping dated price intervals for each customer, not every possible concurrent billing arrangement.
-- Live Stripe/CRM integrations, arbitrary cloud deployments, screen-reader behavior and real mobile hardware were not verified in this release.
-- Forecast inputs are illustrative assumptions. Review flags and implied LTV remain heuristics, not calibrated predictions.
+```sh
+pnpm demo:export
+pnpm exec tsx scripts/verify-demo.ts
+pnpm demo:build
+```
+
+For destructive fixture checks, create and migrate a separate database ending in `_test`. Set `REV_TEST_DATABASE_URL` to it for Python, then set `DATABASE_URL` to it for Node. Node checks also require `LOCAL_WORKSPACE_MODE=true`, `REV_ANALYTICS_ENABLED=true`, `DEMO_MODE=false` and an isolated `REV_ANALYTICS_RUNTIME` folder:
+
+```sh
+uv run python -m pytest analytics/tests/test_pipeline.py -q
+pnpm exec tsx scripts/verify-predictive.ts
+```
+
+CI contains the complete runnable environment setup with temporary PostgreSQL. The normal Python command intentionally skips the destructive integration check when no explicit test URL is supplied. `scripts/build-case.py` requires reportlab and pypdfium2 in a presentation-only environment; these are not production analytics dependencies.
+
+## Limits
+
+Tests establish implementation behavior, not adoption, accounting coverage for every billing model, production security certification or real SaaS forecast accuracy. Chrome checks used emulated viewport sizes, not real mobile hardware or a screen reader. The public static mode cannot import private records. Live CRM integrations, queue workers and delivered alerts were not verified and are not claimed. Full launcher execution against an existing owner dataset was deliberately avoided; the isolated service, PostgreSQL flow and both builds were exercised separately.

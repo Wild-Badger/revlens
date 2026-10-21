@@ -38,7 +38,7 @@ function transactionMock() {
       createMany: vi.fn(async () => calls.push(`create:${table}`)),
     };
   }
-  tx.datasetMetadata = { findUnique: vi.fn(async () => source.metadata), deleteMany: vi.fn(), create: vi.fn() };
+  tx.datasetMetadata = { findUnique: vi.fn(async () => ({...source.metadata,sourceId:ids.customer,sourceName:"Synthetic test",revision:1,analyticsRevision:1,pipelineStatus:"ready",historyComplete:false,historyStart:null})), deleteMany: vi.fn(), create: vi.fn() };
   const db = { $transaction: vi.fn(async (fn: (client: unknown) => Promise<unknown>) => fn(tx)) };
   return { tx, db: db as unknown as PrismaClient, calls };
 }
@@ -97,7 +97,7 @@ describe("local business backup contract", () => {
     const backup = await exportDatasetBackup(db);
     expect(backup.productEvents[0].id).toBe("9007199254740993");
     expect(db.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 60000 });
-    expect(Object.keys(backup).sort()).toEqual(["format", "schemaVersion", "exportedAt", "metadata", "customers", "plans", "subscriptions", "invoices", "payments", "productEvents"].sort());
+    expect(Object.keys(backup).sort()).toEqual(["format", "schemaVersion", "exportedAt", "metadata", "customers", "plans", "subscriptions", "invoices", "payments", "productEvents", "attributeHistory"].sort());
   });
 
   it("replaces in FK order in a single transaction, retaining event ID precision", async () => {

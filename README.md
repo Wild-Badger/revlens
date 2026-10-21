@@ -1,58 +1,36 @@
 # RevLens
 
-**Follow subscription revenue from a monthly overview to the customer records behind it.**
+**Inspect subscription revenue, capture imported changes and evaluate a three-month MRR forecast.**
 
-[Explore the interactive demo](https://wild-badger.github.io/revlens/) · [Run with your own data](#use-your-own-data-locally) · [How the numbers work](#what-the-numbers-mean)
+[Interactive demo](https://wild-badger.github.io/revlens/) · [Evaluation](docs/forecast-evaluation.md) · [Skills and evidence](docs/skills-evidence.md) · [Architecture](docs/architecture.md)
 
-![RevLens revenue overview, dark theme](docs/images/revenue-overview.jpg)
+![Statistical MRR forecast](docs/images/statistical-forecast.jpg)
 
-RevLens is a personal full-stack and data engineering project. It brings recurring revenue, customer history, retention cohorts and scenario planning into one workflow. Start with an MRR change, inspect the accounts and invoice evidence, then export the records for follow-up.
+RevLens is a personal Data Science, data engineering and full-stack project. Its local workflow joins validated CSV imports, PostgreSQL, tested dbt marts, captured attribute history and Python statistical forecasting. Evaluated forecasts and editable what-if scenarios have separate views.
 
-The public demo contains **60 fictional accounts and 66 subscription records**, observed on **September 30, 2026**. It requires no account and accepts no business uploads. The full application also runs as a single-operator local workspace with PostgreSQL, owner authentication, CSV import and backup/restore.
+The public demo uses **60 fictional customers, 191 dated subscription intervals and 48 complete months**, observed through September 30, 2026. Its latest MRR is **$16,277.88**. These are fixtures, not customer outcomes. GitHub Pages serves precomputed artifacts from the same engine; it runs no Python server and accepts no private uploads.
 
 ## A workflow you can inspect
 
-1. **Reconcile revenue.** Review MRR, annual run rate, opening-cohort NRR/GRR and signed revenue movements.
-2. **Find accounts to review.** Search and filter customers, see the reason for each review flag, then open their dated subscription and invoice history.
-3. **Compare retention.** Examine logo, revenue and plan retention with consistent industry and plan filters. Monthly tables are available alongside charts.
-4. **Test an assumption.** Change acquisition, churn and expansion rates to see their arithmetic effect over twelve months. Export a scenario with its assumptions.
-5. **Use your records locally.** Preview and validate a CSV, import dated price changes and churn/reactivation intervals, and download a recoverable dataset backup.
+1. Reconcile monthly MRR with acquisition, expansion, contraction, churn and reactivation movements.
+2. Inspect customers, invoices, fixed-denominator retention cohorts and captured customer/plan versions.
+3. Compare three forecasting methods, then inspect temporal validation, held-out errors, coverage and exact tables.
+4. Change twelve-month what-if assumptions independently of the statistical model.
+5. Import your own USD records locally, capture changes, refresh and export recoverable backups.
 
-![Customer review with supplied evidence](docs/images/customer-review.jpg)
+![Customer history](docs/images/customer-history.jpg)
 
-## Engineering skills demonstrated
+## What the forecast establishes
 
-| Skill | Evidence in this project | Practical use |
-| --- | --- | --- |
-| **React, TypeScript and Next.js** | Responsive analytic screens, URL-backed customer filters, loading/error/empty states and a keyboard-accessible detail dialog | Build an operational interface people can investigate and use repeatedly |
-| **Data modeling with PostgreSQL and Prisma** | Customers, dated subscription intervals, invoices, product events and dataset observation metadata | Preserve the history needed to explain revenue changes |
-| **Revenue analytics** | Shared MRR calculations, opening-cohort retention, customer histories and signed movement reconciliation | Distinguish acquisition, expansion, contraction and customer loss |
-| **Data import and integrity** | Bounded CSV validation, column mapping, stable source IDs, overlap checks and transactional replacement/restore | Import a repeatable snapshot without partial writes or duplicated records |
-| **Data visualization and UX** | Recharts, accessible tables, visible review reasons, light/dark themes and scoped CSV/JSON exports | Move from a chart to the supporting account evidence |
-| **Authentication and testing** | Local owner setup, route/write guards, mocked regression tests and dedicated PostgreSQL integration checks | Protect the local workspace and catch errors in money/date calculations |
-| **Deployment** | A standalone package, deterministic synthetic snapshot and GitHub Actions deployment to Pages | Make the product inspectable without provisioning a backend for every visitor |
+Python compares last observed value, level exponential smoothing and damped-trend ETS. Selection uses rolling origins on earlier data; the last six months are reserved for testing. The chosen method is then refitted to all complete months for a 1–3 month forecast. At least 24 complete months and explicit coverage confirmation are required. At most the latest 120 months are used.
 
-The app does not use a trained AI model. AI/LLM engineering and Python would be separate portfolio evidence, rather than labels for this project.
+The fictional demo selects damped-trend ETS: held-out pooled MAE **$339.68**, versus baseline **$386.02**. A separate real experiment uses **UCI Online Retail II net invoiced sales in GBP**. It selects the baseline, with MAE **£234,534.01**, WAPE **23.73%**. Retail sales are not SaaS MRR and establish no SaaS accuracy. [Full evaluation](docs/forecast-evaluation.md).
 
-## What the numbers mean
+The 80%/95% bands are nominal model-based prediction intervals, with observed coverage reported. Six held-out months yield only 6/5/4 overlapping forecasts by horizon. Review flags and implied LTV remain descriptive heuristics. No individual churn model, causal inference, accounting certification or business uplift is claimed.
 
-**Historical metrics are calculated, not decorative placeholders.** In the public demo their inputs are fictional. In the local workspace they come from the records you supply, limited to the dataset's observation date.
+## Run the static demo
 
-- **MRR** sums active recurring subscription value, normalized to monthly USD. It is not cash collected. Annual run rate is MRR × 12.
-- **Revenue movements** net simultaneous subscription starts and ends for each customer before classifying the change. A plan replacement does not automatically mean customer churn.
-- **NRR and GRR** follow customers active at the start of the reporting month; new customers do not inflate that opening cohort.
-- **Retention and histories** describe supplied dated intervals. Missing earlier prices or activity remain missing; the app does not reconstruct them.
-- **Invoice evidence** reports supplied status and dates. An open or failed invoice can justify reviewing an account; it is not a calibrated prediction that the customer will churn.
-- **Implied LTV** uses ARPA divided by monthly customer churn, and is unavailable when churn is zero. It is a rough ratio, without validated customer-lifetime or gross-margin assumptions.
-- **Forecasts are what-if calculations.** The initial 5% acquisition, 2% churn and 2% expansion rates are illustrative inputs. Changing them changes the projection; the bands are scenarios, not confidence intervals or a fitted statistical forecast. They help compare assumptions, not assign probabilities to future revenue.
-
-This is useful for checking a subscription snapshot and preparing account follow-up. It does not replace accounting revenue recognition, bank reconciliation, an audited billing system or a validated predictive model. No customer adoption, revenue uplift or production-service claims are made.
-
-![Retention in the optional light theme](docs/images/retention-light.jpg)
-
-## Run the public demo locally
-
-Requires **Node.js 22.12+** and **pnpm 10.32.1**. No database, API key or paid service is needed for this mode.
+Requires Node.js 22.12+ and pnpm 10.32.1, with no database or API key:
 
 ```sh
 git clone https://github.com/Wild-Badger/revlens.git
@@ -63,65 +41,49 @@ pnpm demo:build
 pnpm demo:preview
 ```
 
-Open **http://127.0.0.1:3102/revlens/**. The checked-in synthetic snapshot is sufficient to run the demo. Its screens reuse the application's React pages. The data adapter serves exports of the production analytics functions; the forecast sliders use the same pure calculation as the server. Hash navigation supports static hosting and reloads without a server router.
+Open http://127.0.0.1:3102/revlens/. The adapter reuses application screens and fictional exports. Hash routes support reloads; scenario arithmetic remains interactive.
 
-## Use your own data locally
+## Run your private workspace
 
-The included Windows startup script requires **PostgreSQL 17**, Node.js and pnpm. Install the project dependencies above, then run from the repository root:
+Windows prerequisites: Node.js, pnpm, **PostgreSQL 17** and [uv](https://docs.astral.sh/uv/getting-started/installation/). uv resolves Python 3.12 and installs the locked environment.
 
 ```powershell
 .\scripts\start-local.ps1 -Mode Check
 .\scripts\start-local.ps1
 ```
 
-Open **http://127.0.0.1:3101/signup** once to create your local owner. Later registrations are closed; returning owners use `/login`. No email delivery or verification service is required. This is a local single-operator tool, not a hosted multi-user service.
+Open http://127.0.0.1:3101/signup once to create the owner. The launcher starts a dedicated initially empty PostgreSQL cluster on port 55433, Python on **127.0.0.1:8101** and Next.js on **127.0.0.1:3101**. Private credentials, logs, environment and database live outside the repository in `%LOCALAPPDATA%\RevLensLocalWorkspace`. Existing owner credentials remain valid; no sample customers are seeded. `-SkipBuild` reuses a build; rebuild after code changes. Ctrl+C stops Next.js and its Python child; PostgreSQL stays running.
 
-The script starts a separate, initially empty database on `127.0.0.1:55433`, stores it under `%LOCALAPPDATA%\RevLensLocalWorkspace\postgres`, and binds the app to loopback. It generates private runtime credentials outside the repository. It does not seed customers or adopt another database. Override `-PostgresBin` if your PostgreSQL executables are elsewhere.
+In **Import data**, identify an update to the current source or replacement by a new source, supply the observation date, first complete month and coverage confirmation. Unknown history stays unknown. New sources require confirmation and a downloaded backup and reset active captured history. Stable `subscription_id` values identify constant-MRR intervals; adjacent intervals support price changes and reactivation. Overlapping intervals per customer are rejected. Optional `plan_id`, `plan_base_price`, `plan_seat_price` preserve catalog facts; absent prices stay null.
 
-Choose **Import data** to download the template, map columns and review validation before replacement. Use one stable `subscription_id` per constant-MRR interval when importing price changes or churn/reactivation. Adjacent intervals are supported; overlapping intervals for the same customer are rejected. Imports are USD-only, capped at 2 MiB / 2,000 rows / 10,000 product events. Saved mappings contain column names only, never imported business rows.
+Limits: 2 MiB CSV, 2,000 rows, 10,000 product events and 25 MiB backups. Backup v2 includes source metadata and native snapshots. v1 restores with prior coverage/history unknown. Authentication is preserved but does not encrypt files on disk; keep loopback private.
 
-Replacement and restore affect business records, while preserving the owner login. Back up the dataset before replacement. Imports and backups contain business data and persist on this computer; local authentication does not encrypt database files on disk. Keep the loopback service private.
+After raw save, dbt captures snapshots, builds views and tests. Failure shows **data saved, analytics pending**, blocks another replacement and permits retry. Old marts cannot appear current. SCD2 starts with observed captures, never invented historical versions.
 
-To restart without a code change:
-
-```powershell
-.\scripts\start-local.ps1 -SkipBuild
-```
-
-Rebuild after changing code. `Ctrl+C` stops the app; PostgreSQL stays running to preserve the workspace. To stop its dedicated cluster:
-
-```powershell
-& 'C:\Program Files\PostgreSQL\17\bin\pg_ctl.exe' -D "$env:LOCALAPPDATA\RevLensLocalWorkspace\postgres" -m fast stop
-```
-
-## Verify the implementation
+## Verify
 
 ```sh
+uv sync --frozen --all-groups --python 3.12
 pnpm exec prisma generate
 pnpm exec tsc --noEmit
 pnpm test --maxWorkers=2
+uv run python -m pytest -q
 pnpm lint
 pnpm demo:build
 ```
 
-The tests cover revenue/date boundaries, opening-cohort retention, customer history, scenario arithmetic, import validation/idempotence, origin/auth guards and backup validation/rollback. Browser checks cover customer filters and detail, scenario changes and exports, mobile layouts and theme persistence. See [verification notes](docs/verification.md) for the release checks and their scope.
+[Database reproduction and release checks](docs/verification.md) use dedicated loopback databases ending in `_demo` or `_test`. Seed/export scripts reject unrelated populated databases. CI provisions temporary PostgreSQL, exercises import/SCD2/backup recovery, regenerates artifacts and builds both applications before Pages deployment.
 
-The Next.js production build needs a configured database and auth environment. The Windows script supplies these for the local workspace. `.env.example` documents the separate synthetic-server mode; never point a seed script at real data. Legacy integration adapters and webhooks are retained as source, but live third-party integration behavior is outside this release's verified workflow.
+## Structure and scope
 
-## Structure
+- `analytics/`: Python engine, local API, fixtures and benchmark reports.
+- `dbt/`: tested analytical views and persistent native SCD2.
+- `app/`, `lib/`: Next.js, authenticated APIs, Prisma and warehouse readers.
+- `demo/`: shared-screen static adapter and fictional export.
+- `scripts/`, `docs/`: launcher, verification, presentation generator and evidence.
 
-```text
-app/                 Next.js screens and API routes
-lib/                 Analytics, validation, auth/data boundaries and exports
-prisma/              Database schema and migrations
-packages/ui/         Shared UI components vendored for standalone installation
-demo/                Static entry point, navigation and synthetic data adapter
-scripts/             Synthetic export, verification and Windows local startup
-__tests__/           API and data regression checks
-```
+Runtime analytical reads use dbt marts; customer/invoice operations use Prisma. Retained TypeScript calculations are unit-test regression oracles. Legacy `/api/analytics/forecast` returns 410 with its replacement. CRM/billing adapter source is outside the verified workflow and its webhooks are disabled in local mode. No queue worker, Redis alerts, managed warehouse or always-on cloud service is claimed.
 
-## Hosting and cost
+## Hosting
 
-The interactive portfolio demo uses **GitHub Pages**, built by GitHub Actions on pushes to `main`. It serves static assets and fictional data; PostgreSQL, private imports and authentication run only in the separate local application. No visitor can upload business records to this deployment.
-
-GitHub Pages is available for public repositories on GitHub Free. This deployment requires **no daily manual renewal and no hosting subscription**. It remains subject to GitHub's availability, policies and usage limits, including a 1 GB published-site limit and a soft 100 GB/month bandwidth limit. See [GitHub Pages documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages) and [usage limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits).
+GitHub Pages needs **no daily renewal, paid API or hosting subscription**. Private training and imports run on your computer. [Official documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages) and [usage limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits) apply. Upwork materials stay local pending separate approval.

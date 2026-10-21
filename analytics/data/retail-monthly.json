@@ -1,0 +1,123 @@
+{
+  "target": "net_invoiced_sales",
+  "currency": "GBP",
+  "source": "UCI Online Retail II",
+  "sourceUrl": "https://archive.ics.uci.edu/dataset/502/online%2Bretail%2Bii",
+  "downloadUrl": "https://archive.ics.uci.edu/static/public/502/online%2Bretail%2Bii.zip",
+  "sourceSha256": "572e36277c2390fbfde10664750731e0a86f55e33470d91919085f0408e67bfb",
+  "license": "CC BY 4.0",
+  "attribution": "Chen, D. (2012). Online Retail II. UCI. https://doi.org/10.24432/C5CG6D",
+  "rules": [
+    "Signed quantity \u00d7 nonnegative unit price; returns included.",
+    "Rows with missing customer IDs remain: customer identity is not needed for aggregate sales.",
+    "Exact repeated lines retained: no trustworthy line ID is supplied.",
+    "December 2011 excluded because observation stops on December 9.",
+    "GBP sales are not USD MRR and are never imported as subscriptions."
+  ],
+  "counts": {
+    "sourceRows": 1067371,
+    "includedRows": 1041840,
+    "returnRowsIncluded": 22560,
+    "invalidNumericOrNegativePrice": 5,
+    "partialPeriodRowsExcluded": 25526
+  },
+  "rows": [
+    {
+      "month": "2009-12-01",
+      "value": 799847.11
+    },
+    {
+      "month": "2010-01-01",
+      "value": 624032.89
+    },
+    {
+      "month": "2010-02-01",
+      "value": 533091.43
+    },
+    {
+      "month": "2010-03-01",
+      "value": 765848.76
+    },
+    {
+      "month": "2010-04-01",
+      "value": 644174.79
+    },
+    {
+      "month": "2010-05-01",
+      "value": 615322.83
+    },
+    {
+      "month": "2010-06-01",
+      "value": 679786.61
+    },
+    {
+      "month": "2010-07-01",
+      "value": 619268.15
+    },
+    {
+      "month": "2010-08-01",
+      "value": 656776.34
+    },
+    {
+      "month": "2010-09-01",
+      "value": 853650.43
+    },
+    {
+      "month": "2010-10-01",
+      "value": 1084094.22
+    },
+    {
+      "month": "2010-11-01",
+      "value": 1422654.64
+    },
+    {
+      "month": "2010-12-01",
+      "value": 1126445.47
+    },
+    {
+      "month": "2011-01-01",
+      "value": 560000.26
+    },
+    {
+      "month": "2011-02-01",
+      "value": 498062.65
+    },
+    {
+      "month": "2011-03-01",
+      "value": 683267.08
+    },
+    {
+      "month": "2011-04-01",
+      "value": 493207.12
+    },
+    {
+      "month": "2011-05-01",
+      "value": 723333.51
+    },
+    {
+      "month": "2011-06-01",
+      "value": 691123.12
+    },
+    {
+      "month": "2011-07-01",
+      "value": 681300.11
+    },
+    {
+      "month": "2011-08-01",
+      "value": 704804.63
+    },
+    {
+      "month": "2011-09-01",
+      "value": 1019687.62
+    },
+    {
+      "month": "2011-10-01",
+      "value": 1070704.67
+    },
+    {
+      "month": "2011-11-01",
+      "value": 1461756.25
+    }
+  ],
+  "aggregateSha256": "5ce05e8bd074a948aec05ed6d3dd2c5bb87de9325f93ac8c62f0d9e1a6b69fc5"
+}

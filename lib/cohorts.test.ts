@@ -17,10 +17,12 @@ const mockPrisma = prisma as unknown as { subscription: { findMany: ReturnType<t
 describe("cohorts.ts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("DEMO_MODE", "false");
+    vi.stubEnv("LOCAL_WORKSPACE_MODE", "false");
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2025-03-31T23:59:59.999Z"));
   });
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); });
 
   it("does not inflate acquisition MRR with a later plan replacement", async () => {
     const base = { customerId: "one", plan: { name: "Starter" },

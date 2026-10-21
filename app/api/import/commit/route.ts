@@ -1,6 +1,7 @@
+import { analyticsService } from "@/lib/analytics-service";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { importCustomersData } from "@/lib/import/import-service";
+import { importCustomersData, ImportStateError } from "@/lib/import/import-service";
 import { validateImportCSV } from "@/lib/import/csv-validator";
 import { ImportRequestError, importPreviewToken, readImportRequest, requireLocalImport } from "@/lib/import/request";
 
@@ -10,19 +11,21 @@ export async function POST(request: Request) {
     let input;
     try { input = await readImportRequest(request); }
     catch (error) {
-      if (error instanceof ImportRequestError) throw error;
+      if (error instanceof ImportRequestError || error instanceof ImportStateError) throw error;
       throw new ImportRequestError("Could not read a valid UTF-8 CSV request. Choose the file again and validate it.");
     }
-    const { csv, mappings, confirmed, previewToken } = input;
+    const { csv, mappings, confirmed, previewToken, options } = input;
     if (!confirmed) throw new ImportRequestError("Confirm replacement of the complete local dataset after reviewing the preview");
-    if (!previewToken || previewToken !== importPreviewToken(csv, mappings)) throw new ImportRequestError("File or mapping changed. Validate and review a fresh preview before replacing the dataset");
+    if (!previewToken || previewToken !== importPreviewToken(csv, mappings, options)) throw new ImportRequestError("File or mapping changed. Validate and review a fresh preview before replacing the dataset");
     let validation;
     try { validation = validateImportCSV(csv, mappings); }
     catch (error) { throw new ImportRequestError(error instanceof Error ? error.message : "Invalid CSV"); }
     if (validation.errors.length) return NextResponse.json({ error: "No changes saved. Fix every validation error before importing.", ...validation }, { status: 400 });
-    return NextResponse.json(await importCustomersData(prisma, validation));
+    const saved = await importCustomersData(prisma, validation, options);
+    try { await analyticsService("/v1/refresh", saved.revision); return NextResponse.json({ ...saved, analyticsStatus: "ready" }); }
+    catch { return NextResponse.json({ ...saved, analyticsStatus: "pending", message: "Data saved; analytics pending. Start the Python service and retry refresh from Data workspace." }); }
   } catch (error) {
-    if (error instanceof ImportRequestError) return NextResponse.json({ error: error.message }, { status: error.status });
+    if (error instanceof ImportRequestError || error instanceof ImportStateError) return NextResponse.json({ error: error.message }, { status: error.status });
     // Do not return database errors or log supplied rows; they can include private dataset values.
     return NextResponse.json({ error: "No changes saved. Import failed and the transaction was rolled back. Retry, or correct the CSV and validate again." }, { status: 500 });
   }

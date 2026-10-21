@@ -16,13 +16,26 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: revlens_demo
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     permissions:
       contents: write
       pages: write
     env:
-      DATABASE_URL: postgresql://unused:unused@127.0.0.1:55432/unused
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/revlens_demo
       NEXT_TELEMETRY_DISABLED: '1'
+      DBT_SEND_ANONYMOUS_USAGE_STATS: 'false'
+      REV_ANALYTICS_RUNTIME: /tmp/revlens-demo-analytics
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -32,11 +45,56 @@ jobs:
         with:
           node-version: '24'
           cache: pnpm
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --all-groups --python 3.12
       - run: pnpm install --frozen-lockfile --ignore-scripts
       - run: pnpm exec prisma generate
+      - run: pnpm db:deploy
+      - name: Prepare isolated integration database
+        run: |
+          uv run python -c "import os,psycopg; db=psycopg.connect(os.environ['DATABASE_URL'],autocommit=True); db.execute('CREATE DATABASE revlens_test'); db.close()"
+          DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/revlens_test pnpm db:deploy
+      - run: uv run python -m pytest -q
+        env:
+          REV_TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/revlens_test
+      - name: Verify import, SCD2 and recoverable backups
+        run: pnpm exec tsx scripts/verify-predictive.ts
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/revlens_test
+          LOCAL_WORKSPACE_MODE: 'true'
+          NEXT_PUBLIC_LOCAL_WORKSPACE_MODE: 'true'
+          DEMO_MODE: 'false'
+          NEXT_PUBLIC_DEMO_MODE: 'false'
+          REV_ANALYTICS_ENABLED: 'true'
+          REV_ANALYTICS_RUNTIME: /tmp/revlens-test-analytics
+      - name: Reproduce public data and forecasts
+        run: |
+          uv run python -m analytics.cli seed
+          uv run python -m analytics.cli demo-history
+          uv run python -m analytics.cli export-report
+          uv run --group benchmark python -m analytics.cli benchmark
+          pnpm exec tsx scripts/export-demo.ts
+          pnpm exec tsx scripts/verify-demo.ts
+        env:
+          DEMO_MODE: 'true'
+          DEMO_AS_OF: '2026-09-30T23:59:59.999Z'
+          REV_ANALYTICS_ENABLED: 'true'
       - run: pnpm exec tsc --noEmit
       - run: pnpm test --maxWorkers=2
       - run: pnpm lint
+      - name: Build authenticated local application
+        run: pnpm build
+        env:
+          AUTH_SECRET: ci-only-disposable-build-secret-20261021
+          AUTH_URL: http://127.0.0.1:3101
+          AUTH_TRUST_HOST: 'true'
+          LOCAL_WORKSPACE_MODE: 'true'
+          NEXT_PUBLIC_LOCAL_WORKSPACE_MODE: 'true'
+          DEMO_MODE: 'false'
+          NEXT_PUBLIC_DEMO_MODE: 'false'
+          REV_ANALYTICS_ENABLED: 'true'
       - run: pnpm demo:build
       - name: Publish compiled static branch
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

@@ -7,6 +7,7 @@ import { PageHeader } from "@portfolio/ui/components/page-header";
 import { Card } from "@portfolio/ui/components/card";
 import { DownloadButton } from "@/components/download-button";
 import { IMPORT_COLUMNS, MAX_IMPORT_BYTES, type ColumnMappings, type ImportValidationResult, type ImportColumn } from "@/lib/import/csv-validator";
+import type { ImportOptions } from "@/lib/import/options";
 import type { ImportResult } from "@/lib/import/import-service";
 import { MAPPING_STORAGE_KEY, reuseColumnMappings } from "@/lib/import/column-mappings";
 
@@ -16,13 +17,14 @@ const secondary = "inline-flex min-h-11 items-center justify-center rounded-md b
 const usd = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 const mappingGroups = [
   { title: "Customer and reporting facts · 10 required, website optional", columns: IMPORT_COLUMNS.filter(([column, required]) => required || column === "domain"), required: true },
-  { title: "Subscription intervals · required for paying or churned customers", columns: IMPORT_COLUMNS.filter(([column]) => ["subscription_id", "plan_name", "billing_interval", "seats", "mrr", "subscription_started_at", "subscription_ended_at"].includes(column)) },
+  { title: "Subscription intervals · required for paying or churned customers", columns: IMPORT_COLUMNS.filter(([column]) => ["subscription_id", "plan_id", "plan_name", "plan_base_price", "plan_seat_price", "billing_interval", "seats", "mrr", "subscription_started_at", "subscription_ended_at"].includes(column)) },
   { title: "Optional invoice facts", columns: IMPORT_COLUMNS.filter(([column]) => column.startsWith("invoice_")) },
   { title: "Optional product events", columns: IMPORT_COLUMNS.filter(([column]) => column.startsWith("event_")) },
 ];
 
 export default function ImportWizardPage() {
   const router = useRouter();
+  const [options,setOptions] = useState<ImportOptions>({mode:"update",sourceName:"Local dataset",historyStart:null,historyComplete:false});
   const [file, setFile] = useState<File | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mappings, setMappings] = useState<ColumnMappings>({});
@@ -67,7 +69,7 @@ export default function ImportWizardPage() {
     if (!file) return;
     setBusy("validate"); setError(null); setPreview(null); setResult(null); setConfirmed(false);
     try {
-      const body = new FormData(); body.append("file", file); body.append("mappings", JSON.stringify(mappings));
+      const body = new FormData(); body.append("file", file); body.append("mappings", JSON.stringify(mappings)); body.append("options", JSON.stringify(options));
       const response = await fetch("/api/import/validate", { method: "POST", body });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Validation failed");
@@ -83,16 +85,17 @@ export default function ImportWizardPage() {
     if (!file || !preview?.success || !confirmed) return;
     setBusy("import"); setError(null);
     try {
-      const body = new FormData(); body.append("file", file); body.append("mappings", JSON.stringify(mappings));
+      const body = new FormData(); body.append("file", file); body.append("mappings", JSON.stringify(mappings)); body.append("options", JSON.stringify(options));
       body.append("confirmReplace", "true"); body.append("previewToken", preview.previewToken);
       const response = await fetch("/api/import/commit", { method: "POST", body });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.error ?? "Import failed. No changes saved; retry after reviewing the file.");
-      setResult(data); setConfirmed(false); router.refresh();
+      setResult(data); setConfirmed(false); window.dispatchEvent(new Event("revlens:dataset-changed")); router.refresh();
     } catch (error) { setError(error instanceof Error ? error.message : "Connection lost. Check Customers before retrying; a repeated import replaces the same dataset without duplicates."); }
     finally { setBusy(null); }
   }
 
+  function changeOptions(value: Partial<ImportOptions>) { setOptions(current=>({...current,...value}));setPreview(null);setResult(null);setConfirmed(false); }
   return <>
     <PageHeader title="Import your data" description="Review a dated CSV, then replace the dataset in this local installation." />
     <div className="space-y-5">
@@ -107,6 +110,14 @@ export default function ImportWizardPage() {
         <p className="text-sm text-neutral-300">Template: 3 customers, 2 currently active subscriptions, MRR $200.00, 3 invoices with total face value $440.00, and 4 observed events. Observation date: 30 Sep 2026. These are fictional records, never your customers.</p>
       </Card>
 
+      {!demo && <Card className="space-y-4 p-5"><h2 className="text-lg font-semibold">Source identity and historical coverage</h2>
+        <p className="text-sm leading-6 text-neutral-300">Updating the same source preserves captured customer and plan versions. A new source starts a separate history; export the old backup before replacing it. Stable customer_id and plan_id values identify the same entities across imports.</p>
+        <div className="grid gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm"><span className="block">Import operation</span><select name="sourceMode" value={options.mode} onChange={event=>changeOptions({mode:event.target.value as "update"|"new"})} className="min-h-11 w-full rounded border border-neutral-700 bg-neutral-950 p-2"><option value="update">Update this source · preserve SCD2 history</option><option value="new">New source · reset captured history</option></select></label>
+        <label className="space-y-2 text-sm"><span className="block">Source name</span><input name="sourceName" autoComplete="off" value={options.sourceName} maxLength={100} onChange={event=>changeOptions({sourceName:event.target.value})} className="min-h-11 w-full rounded border border-neutral-700 bg-neutral-950 p-2" /></label>
+        <label className="space-y-2 text-sm"><span className="block">First complete coverage month (optional)</span><input name="historyStart" autoComplete="off" type="month" value={options.historyStart?.slice(0,7)??""} onChange={event=>changeOptions({historyStart:event.target.value?`${event.target.value}-01`:null,historyComplete:false})} className="min-h-11 w-full rounded border border-neutral-700 bg-neutral-950 p-2" /></label></div>
+        <label className="flex items-start gap-3 text-sm leading-6"><input name="historyComplete" type="checkbox" checked={options.historyComplete} disabled={!options.historyStart} onChange={event=>changeOptions({historyComplete:event.target.checked})} className="mt-1 h-5 w-5 shrink-0"/>All subscription intervals from this coverage month through as_of are supplied. I understand that missing source records cannot be detected by RevLens.</label>
+        <p className="text-sm text-neutral-400">A statistical forecast requires 24 complete months. Incomplete or unconfirmed history still supports descriptive analysis and manual scenarios.</p>
+      </Card>}
       {demo ? <Card className="p-5"><p className="text-neutral-200">The shared synthetic demo is read-only. Run the dedicated local workspace to import your own data.</p></Card> : <>
         <Card className="space-y-4 p-5">
           <h2 className="text-lg font-semibold">1. Choose and map your CSV</h2>
@@ -159,9 +170,9 @@ export default function ImportWizardPage() {
         </Card>}
 
         {result && <Card className="space-y-4 border border-emerald-500/50 p-5" role="status">
-          <h2 className="text-lg font-semibold">{result.imported} customers saved</h2>
+          <h2 className="text-lg font-semibold">{result.imported} customers saved{result.analyticsStatus === "pending" ? " · analytics pending" : ""}</h2>{result.message && <p className="text-sm">{result.message}</p>}
           <p className="text-sm text-neutral-200">Complete replacement saved: {result.counts.subscriptions} subscriptions, {result.counts.invoices} invoices and {result.counts.events} events. USD · observed {result.asOf}. The dataset persists across browser reloads and server restarts.</p>
-          <div className="flex flex-wrap gap-3"><Link className={button} href="/dashboard">See what changed in revenue</Link><Link className={secondary} href="/customers">Analyze customers</Link><button className={secondary} onClick={() => { setResult(null); setPreview(null); setFile(null); setHeaders([]); }}>Import a different dataset</button></div>
+          <div className="flex flex-wrap gap-3"><Link className={button} href={result.analyticsStatus === "pending" ? "/data" : "/dashboard"}>{result.analyticsStatus === "pending" ? "Retry analytics from Data workspace" : "See what changed in revenue"}</Link><Link className={secondary} href="/customers">Analyze customers</Link><button className={secondary} onClick={() => { setResult(null); setPreview(null); setFile(null); setHeaders([]); }}>Import a different dataset</button></div>
         </Card>}
       </>}
 

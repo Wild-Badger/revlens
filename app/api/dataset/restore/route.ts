@@ -1,3 +1,4 @@
+import { analyticsService } from "@/lib/analytics-service";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { hasLocalMutationOrigin } from "@/lib/dataset";
@@ -30,7 +31,9 @@ export async function POST(request: Request) {
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     if (body?.confirmation !== RESTORE_CONFIRMATION || !body?.backup || Object.keys(body).some((key) => !["confirmation", "backup"].includes(key))) return Response.json({ error: "Select a backup and confirm replacing the local dataset" }, { status: 400 });
     const backup = await restoreDatasetBackup(prisma, body.backup);
-    return Response.json({ restored: true, customers: backup.customers.length, asOf: backup.metadata?.asOf ?? null, currency: backup.metadata?.currency ?? null }, { headers: { "Cache-Control": "no-store" } });
+    let analyticsStatus = "pending";
+    try { const metadata = await prisma.datasetMetadata.findUnique({ where: { id: "local" } }); const ready = await analyticsService("/v1/refresh", metadata?.revision ?? 0); analyticsStatus = ready.status; } catch { /* Records and history were restored; retry is available. */ }
+    return Response.json({ analyticsStatus, restored: true, customers: backup.customers.length, asOf: backup.metadata?.asOf ?? null, currency: backup.metadata?.currency ?? null }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const invalid = error instanceof DatasetBackupError || error instanceof SyntaxError;
     return Response.json({ error: error instanceof DatasetBackupError ? error.message : invalid ? "Invalid JSON backup" : "Restore failed; the previous local dataset was preserved" }, { status: invalid ? 400 : 500 });

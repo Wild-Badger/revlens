@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -16,7 +16,11 @@
     "db:studio": "prisma studio",
     "demo:build": "vite build --config vite.demo.config.ts",
     "demo:preview": "vite preview --config vite.demo.config.ts --host 127.0.0.1 --port 3102",
-    "demo:export": "tsx scripts/export-demo.ts"
+    "demo:export": "tsx scripts/export-demo.ts",
+    "analytics:test": "uv run python -m pytest",
+    "analytics:refresh": "uv run python -m analytics.cli refresh",
+    "analytics:benchmark": "uv run --group benchmark python -m analytics.cli benchmark",
+    "analytics:export": "uv run python -m analytics.cli export-report"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.11.2",

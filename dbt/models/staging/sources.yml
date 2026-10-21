@@ -1,0 +1,12 @@
+version: 2
+sources:
+  - name: app
+    schema: public
+    tables:
+      - name: customers
+      - name: plans
+      - name: subscriptions
+      - name: invoices
+      - name: payments
+      - name: product_events
+      - name: dataset_metadata

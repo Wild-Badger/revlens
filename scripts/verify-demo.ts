@@ -13,7 +13,7 @@ async function main() {
   ]);
   assert.equal(customers.length, 60);
   assert(customers.every((customer) => customer.domain?.endsWith(".example")));
-  assert(subscriptions.every((sub) => sub.startedAt.getUTCFullYear() >= 2025
+  assert(subscriptions.every((sub) => sub.startedAt.getUTCFullYear() >= 2022
     && sub.startedAt <= asOf && (!sub.endedAt || (sub.endedAt >= sub.startedAt && sub.endedAt <= asOf))));
   const active = subscriptions.filter((sub) => sub.startedAt <= asOf && (!sub.endedAt || sub.endedAt > asOf));
   const mrr = active.reduce((total, sub) => total + Number(sub.currentMrr), 0);

@@ -1,8 +1,9 @@
 "use client";
 
-import { apiFetch } from "@/lib/api-fetch";
+import { StatisticalForecast } from "@/components/statistical-forecast";
+import { apiFetch, replaceRouteQuery } from "@/lib/api-fetch";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   LineChart,
   Line,
@@ -81,7 +82,7 @@ function buildChartData(data: ForecastData) {
   });
 }
 
-export default function ForecastPage() {
+function WhatIfScenarios() {
   const [data, setData] = useState<ForecastData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -129,10 +130,7 @@ export default function ForecastPage() {
 
   return (
     <>
-      <PageHeader
-        title="Revenue Forecast"
-        description="Explore 12 months of recurring revenue under assumptions you choose."
-      ><button disabled={!data || loading || !!error} onClick={() => data && downloadFile(`revlens-scenario-${data.asOf.slice(0, 10)}.json`, JSON.stringify({ format: "revlens-scenario", version: 1, exportedAt: new Date().toISOString(), ...data }, null, 2), "application/json")} className="rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40">Export scenario JSON</button></PageHeader>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><h2 className="text-xl font-semibold">12-month scenarios</h2><p className="mt-2 text-sm text-neutral-300">Explore recurring revenue under assumptions you choose.</p></div><button disabled={!data || loading || !!error} onClick={() => data && downloadFile(`revlens-scenario-${data.asOf.slice(0, 10)}.json`, JSON.stringify({ format: "revlens-scenario", version: 1, exportedAt: new Date().toISOString(), ...data }, null, 2), "application/json")} className="rounded-md border border-neutral-700 px-3 py-2 text-sm disabled:opacity-40">Export scenario JSON</button></div>
 
       {error && <p role="alert" className="text-sm text-rose-200">{error} <button onClick={refreshData} className="ml-2 underline">Retry</button></p>}
 
@@ -348,4 +346,17 @@ export default function ForecastPage() {
       </Card>
     </>
   );
+}
+
+function subscribeForecastView(callback: () => void) { window.addEventListener("popstate",callback); return ()=>window.removeEventListener("popstate",callback); }
+export default function ForecastPage() {
+  const tab = useSyncExternalStore(subscribeForecastView,()=>new URLSearchParams(window.location.search).get("forecastView")==="scenarios"?"scenarios":"statistical",()=>"statistical");
+  function setTab(value: string) { const params=new URLSearchParams(window.location.search); if(value==="statistical")params.delete("forecastView");else params.set("forecastView",value);replaceRouteQuery("/forecast",params);window.dispatchEvent(new PopStateEvent("popstate")); }
+  const tabs = [{id:"statistical",label:"Statistical forecast"},{id:"scenarios",label:"What-if scenarios"}];
+  return <><PageHeader title="Revenue forecast" description="Inspect the evidence behind a quarterly prediction, or test your own planning assumptions." />
+    <div role="tablist" aria-label="Forecast method" className="mb-6 flex flex-wrap gap-2 border-b border-neutral-800 pb-3" onKeyDown={event=>{
+      const i=tabs.findIndex(item=>item.id===tab);const next=event.key==="ArrowRight"?(i+1)%2:event.key==="ArrowLeft"?(i+1)%2:event.key==="Home"?0:event.key==="End"?1:null;
+      if(next!==null){event.preventDefault();setTab(tabs[next].id);document.getElementById(`forecast-tab-${tabs[next].id}`)?.focus();}
+    }}>{tabs.map(item=><button key={item.id} id={`forecast-tab-${item.id}`} role="tab" aria-selected={tab===item.id} aria-controls={`forecast-panel-${item.id}`} tabIndex={tab===item.id?0:-1} onClick={()=>setTab(item.id)} className={`min-h-11 rounded-md px-4 py-2 text-sm ${tab===item.id?"bg-neutral-800 text-neutral-50":"text-neutral-400 hover:bg-neutral-900"}`}>{item.label}</button>)}</div>
+    <section id={`forecast-panel-${tab}`} role="tabpanel" aria-labelledby={`forecast-tab-${tab}`}>{tab==="statistical"?<StatisticalForecast/>:<WhatIfScenarios/>}</section></>;
 }

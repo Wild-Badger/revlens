@@ -1,3 +1,4 @@
+import { getAttributeHistory, type AttributeVersion } from "@/lib/attribute-history";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
@@ -71,6 +72,7 @@ export type CustomerRevenueLifecycle = {
 };
 
 export type CustomerDetail = {
+  attributeHistory: AttributeVersion[];
   asOf: string;
   id: string;
   name: string;
@@ -311,7 +313,9 @@ export async function getCustomerDetail(customerId: string): Promise<CustomerDet
     lastEventAt: customer.productEvents[0]?.timestamp.toISOString() ?? null,
   };
 
+  const versions = await Promise.all([getAttributeHistory("customer",customerId), ...[...new Set(customer.subscriptions.map(subscription=>subscription.planId))].map(id=>getAttributeHistory("plan",id))]);
   return {
+    attributeHistory: versions.flat(),
     asOf: asOf.toISOString(),
     id: customer.id,
     name: customer.name,
