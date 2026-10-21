@@ -112,7 +112,9 @@ def compare_release(actual, expected):
         assert fresh['model'] == frozen['model'] and fresh['status'] == frozen['status']
         for a, b in zip([fresh, *fresh['byHorizon']], [frozen, *frozen['byHorizon']], strict=True):
             if b['mae'] is None: assert a['mae'] is None
-            else: assert a['mae'] is not None and abs(a['mae'] - b['mae']) <= max(.01, b['mae'] * .01), 'Validation MAE outside release tolerance'
+            else:
+                limit = max(.01, b['mae'] * .01)
+                assert a['mae'] is not None and abs(a['mae'] - b['mae']) <= limit, f"{actual['source']}: {fresh['model']} validation horizon={a.get('horizon', 'pooled')}, actual={a['mae']}, release={b['mae']}, unchanged tolerance={limit}"
     for fresh, frozen in zip(actual['forecast'], expected['forecast'], strict=True):
         assert fresh['month'] == frozen['month']
         assert abs(fresh['predicted'] - frozen['predicted']) <= max(.02, frozen['predicted'] * .0001), 'Point forecast outside release tolerance'
