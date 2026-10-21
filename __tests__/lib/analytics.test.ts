@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockPrisma } from "../mocks/prisma";
-import { getChurnAnalysis, getRevenueForecast, getCohortRetention } from "@/lib/analytics";
+import { getChurnAnalysis, getCohortRetention } from "@/lib/analytics";
 import { mockSubscription } from "../helpers/factories";
 
 describe("getChurnAnalysis", () => {
@@ -98,75 +98,6 @@ describe("getChurnAnalysis", () => {
     expect(march).toBeDefined();
     expect(march!.logoChurnRate).toBe(1);
     expect(march!.revenueChurnRate).toBe(1);
-  });
-});
-
-describe("getRevenueForecast", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("returns empty forecast with no subscriptions", async () => {
-    mockPrisma.subscription.findMany.mockResolvedValue([]);
-    const result = await getRevenueForecast();
-    expect(result.historicalMrr).toHaveLength(0);
-    expect(result.forecast).toHaveLength(0);
-  });
-
-  it("produces 3-month forecast with positive slope", async () => {
-    mockPrisma.subscription.findMany.mockResolvedValue([
-      mockSubscription({
-        id: "sub-1",
-        customerId: "cust-1",
-        startedAt: new Date("2025-01-01T00:00:00Z"),
-        endedAt: null,
-        currentMrr: 100,
-      }),
-      mockSubscription({
-        id: "sub-2",
-        customerId: "cust-1",
-        startedAt: new Date("2025-02-01T00:00:00Z"),
-        endedAt: null,
-        currentMrr: 100,
-      }),
-      mockSubscription({
-        id: "sub-3",
-        customerId: "cust-1",
-        startedAt: new Date("2025-03-01T00:00:00Z"),
-        endedAt: null,
-        currentMrr: 100,
-      }),
-    ]);
-
-    const result = await getRevenueForecast();
-    expect(result.historicalMrr.length).toBeGreaterThanOrEqual(3);
-    expect(result.forecast).toHaveLength(3);
-    expect(result.forecast[0].projectedMrr).toBeGreaterThanOrEqual(0);
-    expect(result.pipelineGap.target).toBeGreaterThan(0);
-  });
-
-  it("caps projected MRR at 0 for negative trends", async () => {
-    mockPrisma.subscription.findMany.mockResolvedValue([
-      mockSubscription({
-        id: "sub-1",
-        customerId: "cust-1",
-        startedAt: new Date("2025-01-01T00:00:00Z"),
-        endedAt: new Date("2025-02-01T00:00:00Z"),
-        currentMrr: 100,
-      }),
-      mockSubscription({
-        id: "sub-2",
-        customerId: "cust-1",
-        startedAt: new Date("2025-02-01T00:00:00Z"),
-        endedAt: new Date("2025-03-01T00:00:00Z"),
-        currentMrr: 50,
-      }),
-    ]);
-
-    const result = await getRevenueForecast();
-    expect(result.forecast.every((f) => f.projectedMrr >= 0)).toBe(true);
-    expect(result.forecast.every((f) => f.commitMrr >= 0)).toBe(true);
-    expect(result.forecast.every((f) => f.bestCaseMrr >= 0)).toBe(true);
   });
 });
 

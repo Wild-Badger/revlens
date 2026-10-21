@@ -97,7 +97,7 @@ async function main() {
     const { getCustomersList, getCustomerDetail, getCustomerRevenueHistory } = await import("../lib/customers");
     const { getLogoRetentionCohorts, getRevenueRetentionCohorts, getPlanRetention, getSegmentRetention } = await import("../lib/cohorts");
     const { getForecastScenarios } = await import("../lib/forecast");
-    const { getChurnAnalysis, getRevenueForecast, getCohortRetention } = await import("../lib/analytics");
+    const { getChurnAnalysis, getCohortRetention } = await import("../lib/analytics");
     const asOf = "2026-09-30T23:59:59.999Z";
     const summary = await getRevenueSummary();
     assert.equal(summary.as_of, asOf);
@@ -144,12 +144,10 @@ async function main() {
     assert.deepEqual(planRetention.find((row) => row.plan === "Team"), { plan: "Team", sampleSize: 1, retentionRate: 0 });
     const segmentRetention = await getSegmentRetention();
     assert.equal(segmentRetention.find((row) => row.segment === "Industry: Education")?.retentionRate, 0);
-    const legacyForecast = await getRevenueForecast();
-    assert.deepEqual(legacyForecast.historicalMrr.at(-1), { month: "2026-09-01", mrr: 200 });
     const churn = await getChurnAnalysis();
     assert.equal(churn.churnOverTime.at(-1)?.month, "2026-09-01");
     assert.equal(churn.totalRevenueLost, 240);
-    record("cohort_filters_forecast_and_churn_cutoff", { logos, planRetention, segmentRetention, forecast, legacyForecast, churn });
+    record("cohort_filters_forecast_and_churn_cutoff", { logos, planRetention, segmentRetention, forecast, churn });
 
     const firstBackup = await exportDatasetBackup(db);
     assert.equal(firstBackup.invoices.reduce((sum, invoice) => sum + Number(invoice.amount), 0), 440);

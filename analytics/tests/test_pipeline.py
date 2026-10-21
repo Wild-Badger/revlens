@@ -31,7 +31,10 @@ def test_postgres_reconciliation_snapshots_and_recovery(monkeypatch, tmp_path):
                  where started_at < %s::date+interval '1 month' and (ended_at is null or ended_at >= %s::date+interval '1 month')""", (row["month"],row["month"])).fetchone()
             assert row["value"] == raw["value"]
         assert db.execute("select count(*) as n from analytics_history.customer_attributes").fetchone()["n"] == 61
-    refresh()
+    # A launcher-owned Python process must work without shell activation or PATH lookup.
+    with monkeypatch.context() as patch:
+        patch.setenv("PATH", "")
+        refresh()
     with connect() as db:
         assert db.execute("select count(*) as n from analytics_history.customer_attributes").fetchone()["n"] == 61
         db.execute("update customers set industry='Updated industry' where id=%s", (identity("customer:0"),))

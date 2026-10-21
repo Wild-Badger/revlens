@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import threading
 from datetime import date, timezone
 from urllib.parse import urlparse, urlunparse
@@ -85,7 +86,9 @@ def refresh(expected_revision: int | None = None) -> dict:
                 raise PipelineError("Dataset changed; request a fresh analytics refresh")
             db.execute("update dataset_metadata set pipeline_status='pending' where id='local'")
             try:
-                result = subprocess.run(["dbt", "build", "--project-dir", str(ROOT / "dbt"), "--profiles-dir", str(ROOT / "dbt"),
+                # The Windows launcher starts Python directly, without activating a shell environment.
+                dbt = str(Path(sys.executable).with_name("dbt.exe" if os.name == "nt" else "dbt"))
+                result = subprocess.run([dbt, "build", "--project-dir", str(ROOT / "dbt"), "--profiles-dir", str(ROOT / "dbt"),
                                          "--no-use-colors"], env=dbt_environment(), capture_output=True, text=True, timeout=120)
                 (runtime_dir() / "dbt-last.log").write_text(result.stdout + result.stderr, encoding="utf-8")
                 if result.returncode:

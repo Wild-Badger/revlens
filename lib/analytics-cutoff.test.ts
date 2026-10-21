@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockPrisma } from "@/__tests__/mocks/prisma";
 import { mockSubscription } from "@/__tests__/helpers/factories";
-import { getChurnAnalysis, getCohortRetention, getRevenueForecast } from "./analytics";
+import { getChurnAnalysis, getCohortRetention } from "./analytics";
+import { getForecastScenarios } from "./forecast";
 
 describe("analytics snapshot cutoff", () => {
   beforeEach(() => {
@@ -21,9 +22,9 @@ describe("analytics snapshot cutoff", () => {
     expect(churn.churnOverTime.at(-1)).toMatchObject({ month: "2026-09-01", totalCustomers: 1, totalRevenue: 100, churnedCustomers: 0 });
     expect(churn.totalRevenueLost).toBe(0);
     expect(churn.churnByPlan[0]).toMatchObject({ totalCount: 1, churnedCount: 0, revenueLost: 0 });
-    const forecast = await getRevenueForecast();
+    const forecast = await getForecastScenarios({ newMrrGrowth: 0, churnRate: 0, expansionRate: 0 });
     expect(forecast.historicalMrr.at(-1)).toEqual({ month: "2026-09-01", mrr: 100 });
-    expect(forecast.forecast[0]).toMatchObject({ month: "2026-10-01", projectedMrr: 100 });
+    expect(forecast.baseline[0]).toMatchObject({ month: "2026-10-01", mrr: 100 });
   });
 
   it("counts boundary churn in the month it occurs and continues through the snapshot", async () => {
@@ -53,6 +54,5 @@ describe("analytics snapshot cutoff", () => {
       startedAt: new Date("2026-01-01Z"), endedAt: new Date("2026-03-01Z"),
     })]);
     expect((await getChurnAnalysis({ segment: "US" })).churnOverTime).toEqual([]);
-    expect((await getRevenueForecast({ segment: "US" })).historicalMrr).toEqual([]);
   });
 });

@@ -5,7 +5,7 @@ Checks used isolated fictional databases, never private business records or bill
 | Check | Observed result | Scope |
 | --- | --- | --- |
 | Locked installs | Passed | pnpm standalone install; uv Python 3.12 environment |
-| TypeScript/Vitest | 182 tests passed in 22 files | Money/date boundaries, cohorts, import/backup, auth/origin guards and static forecast adapter |
+| TypeScript/Vitest | 176 tests passed in 22 files | Money/date boundaries, cohorts, import/backup, auth/origin guards and static forecast adapter; six obsolete regression-forecast checks retired with their unused implementation |
 | Python unit checks | 5 passed | Temporal leakage, history validation, constant/zero series, candidate failures, deterministic engine and private API auth |
 | Python/PostgreSQL integration | Passed | Actual dbt build, raw/monthly reconciliation across 48 months, repeated/changed/deleted/reappearing customer and plan snapshots, failed-process retry |
 | Node/PostgreSQL integration | 9 checks passed | Pending barrier, unavailable service recovery, idempotence, changed attributes, v2 full restore, v1 unknown history, real database-error rollback, new-source isolation and stable catalog identity |
@@ -13,7 +13,7 @@ Checks used isolated fictional databases, never private business records or bill
 | Next.js production build | Passed | Local environment; all 45 pages/routes generated; webpack supports linked standalone dependencies |
 | Static build/export | Passed | 60 fictional customers, 191 intervals, 24 scopes; raw movements reconcile to MRR $16,277.88 |
 | Live Python HTTP | Passed | Loopback health and authenticated report with 48 months and 3 predictions |
-| Launcher | Prerequisite/syntax check passed | New Python startup uses the same verified Uvicorn module; full owner-workspace launch was not rerun against user records |
+| Launcher | Prerequisite and direct-Python service checks passed | Actual authenticated HTTP refresh works from the launcher-style Python process; PostgreSQL refresh also passed with an empty PATH. Full owner-workspace launch was not rerun against user records |
 | Chrome extension | Checked | Statistical chart/tables, held-out errors, SCD2 current/superseded states, themes, keyboard tabs and reload persistence |
 | Mobile viewport | Checked at 390 Ã— 844 | Forecast readable, no page-level horizontal overflow; wide exact-value tables scroll locally |
 | Presentation | Rendered and inspected | Three-page PDF from structured copy/reports; ZIP contains only current media and copy |

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { getForecastScenarios, ForecastAssumptions, ForecastScenarios } from "@/lib/forecast";
-import { getRevenueForecast as getRevenueForecastAnalytics } from "@/lib/analytics";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -100,43 +99,3 @@ describe("forecast.ts", () => {
   });
 });
 
-describe("analytics.ts - Revenue Forecast", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe("getRevenueForecast", () => {
-    it("should return forecast data structure", async () => {
-      mockPrisma.subscription.findMany.mockResolvedValue([]);
-
-      const result = await getRevenueForecastAnalytics();
-
-      expect(result).toHaveProperty("historicalMrr");
-      expect(result).toHaveProperty("forecast");
-      expect(result).toHaveProperty("pipelineGap");
-      expect(result).toHaveProperty("arrTargetTracker");
-      expect(Array.isArray(result.historicalMrr)).toBe(true);
-      expect(Array.isArray(result.forecast)).toBe(true);
-    });
-
-    it("should calculate linear regression for projection", async () => {
-      mockPrisma.subscription.findMany.mockResolvedValue([]);
-
-      const result = await getRevenueForecastAnalytics();
-
-      if (result.forecast.length > 0) {
-        expect(result.forecast[0]).toHaveProperty("month");
-        expect(result.forecast[0]).toHaveProperty("projectedMrr");
-      }
-    });
-
-    it("should handle empty data gracefully", async () => {
-      mockPrisma.subscription.findMany.mockResolvedValue([]);
-
-      const result = await getRevenueForecastAnalytics();
-
-      expect(result.historicalMrr).toEqual([]);
-      expect(result.forecast).toEqual([]);
-    });
-  });
-});

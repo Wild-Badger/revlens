@@ -3,6 +3,7 @@ name: Verify and deploy portfolio demo
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md']
   pull_request:
   workflow_dispatch:
 
@@ -104,7 +105,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout --orphan gh-pages
-          git rm --cached -r .
+          git rm --cached -r -f .
           cp -r dist-demo/* .
           touch .nojekyll
           git add --force index.html assets .nojekyll
