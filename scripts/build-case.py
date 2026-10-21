@@ -1,6 +1,6 @@
 """Build the case from structured copy + evaluated reports, never README parsing.
 
-Requires reportlab (PDF) and pypdfium2 (rendered verification).
+Requires reportlab (PDF), pypdf (structure) and pypdfium2 (rendered verification).
 Outputs stay outside the source repository by default.
 """
 from pathlib import Path
@@ -23,7 +23,7 @@ def evaluation_document():
         "## Protocol", "",
         "Target: complete month-end total MRR in USD for subscriptions. At least 24 confirmed complete months; maximum 120. No interpolation of unknown months. The final six months are withheld from method selection. Expanding rolling origins begin with 12 training months and include all three forecast horizons. Selection minimizes mean absolute error, with fixed simpler-first ties. Development horizons have equal counts. During the final test, the selected method is fixed while parameters are refitted only to observations already available. Final fitting uses all complete history.", "",
         "MAE is mean absolute error in the target currency. WAPE is sum of absolute errors divided by sum of absolute actual values and is undefined for an all-zero target. Pooled final-test scores weight the 15 available forecasts; horizons contain 6/5/4 forecasts and overlap. These are not 15 independent experiments.", "",
-        "Release JSON reports and the static demo are versioned together. CI regenerates them, verifies input hashes, method selection and bounded solver variation, then serves the checked-in release artifacts so the interface, README and case agree. ETS optimizers can differ slightly across operating systems/BLAS libraries: the same locked Windows/Linux run produced demo pooled MAE 339.68/340.09. CI allows 1% MAE variation and 0.01% point-forecast variation (with currency rounding floors); larger changes require an explicit reviewed artifact update. These tolerances are reproducibility checks, not forecast-accuracy claims.", "",
+        "Release JSON reports and the static demo are versioned together. CI regenerates them, verifies input hashes, method selection and bounded solver variation, then serves the checked-in release artifacts so the interface, README and case agree. ETS optimizers can differ slightly across operating systems/BLAS libraries: CI allows 1% MAE variation and 0.01% point-forecast variation (with currency rounding floors); larger changes require an explicit reviewed artifact update. These tolerances are reproducibility checks, not forecast-accuracy claims.", "",
         "ETS uses additive errors, no seasonality and either level only or additive damped trend. Normal-innovation exact conditional ETS intervals come from statsmodels. The last-value method uses normal random-walk intervals with root-mean-square first differences and square-root horizon scaling. Bounds and point forecasts are clipped at zero. These intervals omit model-selection uncertainty and are not conformal or empirically recalibrated. Constant histories have zero-width conditional intervals; future regime changes remain possible. Failed candidates are recorded and excluded from selection, not assigned fabricated scores.", ""]
     for path in reports:
         r=json.loads(path.read_text(encoding="utf-8"))
@@ -56,70 +56,110 @@ def evaluation_document():
     (ROOT/"docs/forecast-evaluation.md").write_text("\n".join(lines)+"\n",encoding="utf-8")
 
 
+def readme_document(c, r, retail):
+    demo = read("demo/data.json")
+    lines = ["# " + c["title"], "", "**Import subscription history, reconcile MRR and deliver a forecast whose errors can be inspected.**", "",
+        f"[Interactive demo]({c['demoUrl']}) · [Evaluation](docs/forecast-evaluation.md) · [Skills and evidence](docs/skills-evidence.md) · [Architecture](docs/architecture.md)", "",
+        "![Evaluated forecast](docs/images/portfolio-forecast.png)", "", c["summary"], "", "## A client delivery this project demonstrates", ""]
+    lines.extend(f"- **{item['label']}:** {item['text']}" for item in c["delivery"])
+    lines += ["", f"Public fixture: **{len(demo['customers'])} fictional customers**, **{sum(len(value['subscriptions']) for value in demo['histories'].values())} dated intervals**, **{r['coverage']['completeMonths']} complete months**, observed through {r['asOf'][:10]}. Latest MRR: **USD {r['history'][-1]['value']:,.2f}**. Pages serves artifacts; no private files or Python server run there.", "",
+        "## Evidence, including the unfavorable result", "", f"Selected on earlier validation: **{r['selectedLabel']}**. Final pooled MAE: **USD {r['test']['selected']['mae']:,.2f}** versus **USD {r['test']['baseline']['mae']:,.2f}** for the baseline. No method is selected or tuned from the final test.", "",
+        "| Horizon | Selected MAE (USD) | Baseline MAE (USD) | Test forecasts |", "| --- | ---: | ---: | ---: |"]
+    for selected, baseline in zip(r['test']['selected']['byHorizon'],r['test']['baseline']['byHorizon'],strict=True):
+        lines.append(f"| {selected['horizon']} month(s) | {selected['mae']:,.2f} | {baseline['mae']:,.2f} | {selected['count']} |")
+    lines += ["", f"The selected method {'loses to' if r['test']['selected']['byHorizon'][0]['mae'] > r['test']['baseline']['byHorizon'][0]['mae'] else 'matches or beats'} the baseline at horizon 1. Selection uses aggregate earlier validation, not hindsight on the test.", "",
+        f"Separate real experiment: UCI Online Retail II net invoiced sales in GBP, including returns. Selected **{retail['selectedLabel']}**, pooled MAE **GBP {retail['test']['selected']['mae']:,.2f}**, WAPE **{retail['test']['selected']['wape']:.2%}**. Retail results establish no SaaS MRR accuracy.", "",
+        "Nominal 80%/95% intervals are conditional on model assumptions. Observed coverage and the small, overlapping holdout are reported. Review flags and implied LTV are descriptive heuristics; there is no individual churn model, causal claim or business-uplift promise.", "",
+        "## History and safe recovery", "", c['recovery'], "", "![Captured versions](docs/images/portfolio-scd2.png)", "",
+        "The [48-month subscription CSV](docs/examples/revlens-48-months.csv) and [intentionally invalid CSV](docs/examples/revlens-invalid.csv) are deterministic examples. Use coverage start **2022-10** and confirm completeness for the valid example. They contain subscription facts only; invoices, payments and events are intentionally absent.", "", c['readmeInstructions']]
+    (ROOT/'README.md').write_text("\n".join(lines)+"\n",encoding='utf-8')
+
+
 def build(output):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, PageBreak, Table, TableStyle
     from reportlab.lib.utils import ImageReader
+    from pypdf import PdfReader
     import pypdfium2 as pdfium
+    import subprocess
 
     c=read("docs/portfolio-case.json"); r=read("analytics/reports/demo-prediction.json"); retail=read("analytics/reports/retail-benchmark.json")
+    assert len(c['title']) <= 70 and len(c['role']) <= 100 and len(c['summary']) <= 600 and len(c['skills']) <= 5
     output.mkdir(parents=True,exist_ok=True)
     styles=getSampleStyleSheet()
-    styles.add(ParagraphStyle(name="CaseTitle",fontName="Helvetica-Bold",fontSize=28,leading=32,textColor=colors.HexColor("#111827"),spaceAfter=16))
-    styles["BodyText"].fontSize=10.5; styles["BodyText"].leading=16; styles["BodyText"].spaceAfter=10
-    styles["Heading2"].textColor=colors.HexColor("#065f46")
+    styles.add(ParagraphStyle(name="CaseTitle",fontName="Helvetica-Bold",fontSize=24,leading=28,textColor=colors.HexColor("#171717"),spaceAfter=14))
+    styles['BodyText'].fontSize=10; styles['BodyText'].leading=14; styles['BodyText'].spaceAfter=8
+    styles['Heading2'].fontSize=14; styles['Heading2'].leading=18; styles['Heading2'].textColor=colors.HexColor('#047857')
+    styles.add(ParagraphStyle(name='Cell',fontName='Helvetica',fontSize=8.5,leading=12))
     story=[]
-    def p(text,style="BodyText"):
-        story.append(Paragraph(escape(text),styles[style]))
-    def shot(name):
-        path=ROOT/"docs/images"/name
-        width,height=ImageReader(str(path)).getSize()
-        story.append(Image(str(path),width=507,height=507*height/width));story.append(Spacer(1,12))
-    p("REVLENS / ENGINEERING CASE","Heading2");p(c["title"],"CaseTitle");p(c["role"]);p(c["summary"]);shot(c["images"][0])
-    p("A model you can inspect","Heading2");p(c["problem"]);p(c["solution"])
-    p("Skills: "+", ".join(c["skills"]))
+    def p(text,style='BodyText'): story.append(Paragraph(escape(text),styles[style]))
+    def link(label,url): story.append(Paragraph(f'<link href="{escape(url)}" color="#047857"><u>{escape(label)}</u></link>',styles['BodyText']))
+    def shot(name,width=400):
+        image=ROOT/'docs/images'/name
+        w,h=ImageReader(str(image)).getSize()
+        assert (w,h)==(1600,1200), f'{name}: expected 1600 x 1200'
+        story.append(Image(str(image),width=width,height=width*h/w));story.append(Spacer(1,10))
+    def table(rows,widths):
+        values=[[Paragraph(escape(str(cell)),styles['Cell']) for cell in row] for row in rows]
+        obj=Table(values,colWidths=widths,hAlign='LEFT',repeatRows=1)
+        obj.setStyle(TableStyle([('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'),('VALIGN',(0,0),(-1,-1),'TOP'),('BOTTOMPADDING',(0,0),(-1,-1),8),('TOPPADDING',(0,0),(-1,-1),8),('LINEBELOW',(0,0),(-1,-1),.4,colors.HexColor('#d4d4d4'))]))
+        story.append(obj);story.append(Spacer(1,10))
+    p('REVLENS / PERSONAL ENGINEERING CASE','Heading2');p(c['title'],'CaseTitle')
+    p('A subscription CSV becomes reconciled revenue, an evaluated forecast and a reproducible handover.')
+    for item in c['delivery']:
+        story.append(Paragraph(f"<b>{escape(item['label'])}.</b> {escape(item['text'])}",styles['BodyText']))
+    shot(c['images'][0],390)
+    link('Open the interactive demo',c['demoUrl']+'#/forecast')
     story.append(PageBreak())
-    p("From imported records to evidence","CaseTitle");p(c["pipeline"]);shot(c["images"][1])
-    p("History and recovery","Heading2");p(c["recovery"])
-    p("SCD2 validity begins when the application captures a state. Source observation time is separate; earlier attribute changes are never fabricated.")
-    p("The public demo contains 48 complete months of fictional subscriptions. Private imports and model fitting run locally; the published app serves precomputed artifacts.")
+    p('Results a buyer can inspect','CaseTitle')
+    p(f"Fictional subscriptions: {r['coverage']['completeMonths']} complete months. Method: {r['selectedLabel']}. Earlier rolling-origin validation chooses the aggregate MAE winner; the final six months are never used for selection. The method stays fixed while parameters refit only to available observations.")
+    table([['Horizon','Selected MAE / USD','Baseline MAE / USD','Count','80% / 95% coverage']]+[[f"{h['horizon']} month(s)",f"{h['mae']:,.2f}",f"{r['test']['baseline']['byHorizon'][i]['mae']:,.2f}",h['count'],f"{r['test']['intervalCoverage'][i]['coverage80']:.1%} / {r['test']['intervalCoverage'][i]['coverage95']:.1%}"] for i,h in enumerate(r['test']['selected']['byHorizon'])],[65,110,110,48,174])
+    p(f"Pooled MAE: USD {r['test']['selected']['mae']:,.2f}; baseline USD {r['test']['baseline']['mae']:,.2f}. WAPE: {r['test']['selected']['wape']:.2%}. The selected method {'has higher error' if r['test']['selected']['byHorizon'][0]['mae'] > r['test']['baseline']['byHorizon'][0]['mae'] else 'matches or beats the baseline'} at horizon 1. These {r['test']['selected']['count']} forecasts overlap and are not independent experiments. Nominal intervals are not guaranteed coverage.")
+    shot(c['images'][2],360)
+    p(f"Separate real benchmark: UCI Online Retail II, signed net invoiced sales including returns, GBP. It selects the last-value baseline: MAE {retail['test']['selected']['mae']:,.2f}, WAPE {retail['test']['selected']['wape']:.2%}. This is retail, not SaaS accuracy evidence. D. Chen (2012), CC BY 4.0.")
+    link('Full evaluation, all candidates, stress cases and provenance',c['sourceUrl']+'/blob/main/docs/forecast-evaluation.md')
     story.append(PageBreak())
-    p("Evaluation, including the baseline","CaseTitle")
-    p("Method selection uses earlier expanding-window validation. The last six months remain outside selection; the chosen method is refitted only as observations become available. Horizons have 6, 5 and 4 overlapping test predictions.")
-    rows=[["Dataset / currency","Selected method","Test MAE","Baseline MAE","WAPE"]]
-    for label,report in (("Fictional MRR / USD",r),("Real retail / GBP",retail)):
-        rows.append([label,report["selectedLabel"].replace(" · "," / "),f"{report['test']['selected']['mae']:,.2f}",f"{report['test']['baseline']['mae']:,.2f}",f"{report['test']['selected']['wape']:.2%}"])
-    table=Table(rows,colWidths=[120,140,88,88,71],hAlign="LEFT")
-    table.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor("#ecfdf5")),("FONTNAME",(0,0),(-1,0),"Helvetica-Bold"),("FONTSIZE",(0,0),(-1,-1),8),("BOTTOMPADDING",(0,0),(-1,-1),12),("TOPPADDING",(0,0),(-1,-1),12),("LINEBELOW",(0,0),(-1,-1),.5,colors.HexColor("#d1d5db")),("ALIGN",(2,0),(-1,-1),"RIGHT")]))
-    story.append(table);story.append(Spacer(1,16))
-    p("The real benchmark is UCI Online Retail II, attributed to D. Chen (2012), CC BY 4.0. It aggregates signed net invoiced sales, including returns, from December 2009 through November 2011. Its baseline wins selection; the result does not validate SaaS MRR prediction.")
-    p("Limits and reproducibility","Heading2");p(c["limits"])
-    p("Nominal 80%/95% prediction intervals expose model assumptions and observed small-sample coverage. Complete candidate scores, horizon errors, hashes, cleaning rules and predefined stress cases are in the repository evaluation report.")
-    p("Inspect the demo: "+c["demoUrl"]);p("Source and reproducible checks: "+c["sourceUrl"])
-    pdf=output/"RevLens-Case-Study.pdf"
+    p('Traceable data. Recoverable failures.','CaseTitle');p(c['pipeline'])
+    shot(c['images'][3],390)
+    p('Observed history, not reconstructed history','Heading2')
+    p('Native dbt SCD2 captures changed, removed and reappearing customers and plans. Source observation dates and capture timestamps remain distinct. Pending revisions keep the operational record available and hide stale captured versions. New sources have separate identities.')
+    p('A checkpoint before destructive replacement','Heading2');p(c['recovery'])
+    p('Checkpoint restoration verifies the checksum and all normal temporal/relationship constraints. Invalid raw content stays downloadable for manual recovery; it cannot bypass validation. Backups v1 remain restorable with earlier coverage/history unknown.')
+    story.append(PageBreak())
+    p('Reproduce the delivery','CaseTitle')
+    p('Clone the public repository. Install the locked Node/Python dependencies and PostgreSQL 17. The Windows launcher creates a separate local owner workspace. Public Pages runs only precomputed fictional artifacts; private imports and fitting remain on the computer.')
+    table([['Skill','Inspectable implementation / runnable evidence'],['Python / Data Science','analytics/forecast.py; pytest analytics/tests/test_forecast.py; earlier temporal validation and final errors'],['Data Engineering / SQL','dbt build via analytics.cli refresh; reconciled marts, cutoff tests and fixed-denominator cohorts'],['PostgreSQL / SCD2','dbt/snapshots; pytest analytics/tests/test_pipeline.py with a disposable *_test database'],['Integrity / Full-stack','scripts/verify-predictive.ts; real import, revision checks, full v2 round-trip and checkpoint recovery'],['Reproducible handover','scripts/verify-artifacts.py; five reports, recalculated scores/coverage, CI and static export']],[120,387])
+    p('Start: ./scripts/start-local.ps1 (Windows). Verify: pnpm test --maxWorkers=2; uv run python -m pytest -q. The repository verification guide supplies isolated database flags and release commands. Unknown coverage produces a diagnosis, not an evaluated forecast.')
+    shot(c['images'][5],260)
+    p(c['limits'])
+    link('Interactive demo',c['demoUrl']+'#/forecast');link('Source, installation and full evidence matrix',c['sourceUrl']);link('Database and release verification',c['sourceUrl']+'/blob/main/docs/verification.md')
+    pdf=output/'RevLens-Case-Study.pdf'
     def footer(canvas,doc):
-        canvas.setFont("Helvetica",8);canvas.setFillColor(colors.HexColor("#6b7280"))
-        canvas.drawString(44,27,"RevLens | Personal project | Synthetic MRR + separate real-data benchmark")
-        canvas.drawRightString(551,27,str(doc.page))
-    SimpleDocTemplate(str(pdf),pagesize=A4,rightMargin=44,leftMargin=44,topMargin=40,bottomMargin=45,title=c["title"],author="Anthony Macarth").build(story,onFirstPage=footer,onLaterPages=footer)
-    copy={**c,"evaluation":{"methodVersion":r["methodVersion"],"dataHash":r["dataHash"],"selectedModel":r["selectedModel"],"test":r["test"]["selected"],"baseline":r["test"]["baseline"]},"uploadStatus":"Awaiting owner greenlight; not uploaded to Upwork"}
-    (output/"PORTFOLIO-COPY.json").write_text(json.dumps(copy,indent=2)+"\n",encoding="utf-8")
-    media=output/"media";media.mkdir(exist_ok=True)
-    for name in c["images"]:
-        shutil.copy2(ROOT/"docs/images"/name,media/name)
-    (output/"README.md").write_text("# RevLens portfolio package\n\nGenerated by scripts/build-case.py from docs/portfolio-case.json and evaluated JSON reports.\n\nUse the PDF, current media files and PORTFOLIO-COPY.json. Legacy screenshots outside media/ are superseded. Nothing has been uploaded to Upwork; owner approval is pending.\n",encoding="utf-8")
-    with zipfile.ZipFile(output/"RevLens-Portfolio-Upload.zip","w",zipfile.ZIP_DEFLATED) as archive:
-        for path in [pdf,output/"PORTFOLIO-COPY.json",output/"README.md",*[media/name for name in c["images"]]]:
-            archive.write(path,path.relative_to(output))
-    render=output/"tmp"/"predictive";render.mkdir(parents=True,exist_ok=True)
+        canvas.setFont('Helvetica',8);canvas.setFillColor(colors.HexColor('#737373'))
+        canvas.drawString(44,27,'RevLens | Personal project | Fictional MRR + separate real retail benchmark');canvas.drawRightString(551,27,str(doc.page))
+    SimpleDocTemplate(str(pdf),pagesize=A4,rightMargin=44,leftMargin=44,topMargin=38,bottomMargin=45,title=c['title'],author='Anthony Macarth').build(story,onFirstPage=footer,onLaterPages=footer)
+    assert len(PdfReader(pdf).pages)==4, 'Case must have exactly four pages'
+    assert pdf.stat().st_size < 25*1024*1024
+    revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
+    copy={key:value for key,value in c.items() if key!='readmeInstructions'}
+    import hashlib
+    copy['imageSha256']={name:hashlib.sha256((ROOT/'docs/images'/name).read_bytes()).hexdigest() for name in c['images']}
+    copy.update(codeRevision=revision,evaluation={'methodVersion':r['methodVersion'],'dataHash':r['dataHash'],'selectedModel':r['selectedModel'],'test':r['test']['selected'],'baseline':r['test']['baseline']},uploadStatus='Awaiting owner greenlight; not uploaded to Upwork')
+    (output/'PORTFOLIO-COPY.json').write_text(json.dumps(copy,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    media=output/'media';media.mkdir(exist_ok=True)
+    for name in c['images']: shutil.copy2(ROOT/'docs/images'/name,media/name)
+    (output/'README.md').write_text('# RevLens portfolio package\n\nFour-page case and six real-UI presentation images, generated from docs/portfolio-case.json and evaluated reports. Use PORTFOLIO-COPY.json for the title, role, description and five tags. Nothing has been uploaded to Upwork; owner greenlight is required.\n',encoding='utf-8')
+    with zipfile.ZipFile(output/'RevLens-Portfolio-Upload.zip','w',zipfile.ZIP_DEFLATED) as archive:
+        for path in [pdf,output/'PORTFOLIO-COPY.json',output/'README.md',*[media/name for name in c['images']]]: archive.write(path,path.relative_to(output))
+    render=output/'tmp'/'final';render.mkdir(parents=True,exist_ok=True)
     document=pdfium.PdfDocument(pdf)
-    for i,page in enumerate(document):
-        page.render(scale=1.4).to_pil().save(render/f"page-{i+1}.png")
-    print(json.dumps({"pdf":str(pdf),"pages":len(document),"zip":str(output/"RevLens-Portfolio-Upload.zip"),"copyCharacters":len(c["summary"])}))
+    for i,page in enumerate(document): page.render(scale=1.5).to_pil().save(render/f'page-{i+1}.png')
+    readme_document(c,r,retail)
+    print(json.dumps({'pdf':str(pdf),'pages':len(document),'pdfBytes':pdf.stat().st_size,'zip':str(output/'RevLens-Portfolio-Upload.zip'),'copyCharacters':len(c['summary']),'codeRevision':revision}))
 
 
-if __name__=="__main__":
-    parser=argparse.ArgumentParser();parser.add_argument("--output",type=Path,default=ROOT.parent/"docs/cases/revlens");args=parser.parse_args()
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,default=ROOT.parent/'docs/cases/revlens');args=parser.parse_args()
     evaluation_document();build(args.output)

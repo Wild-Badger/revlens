@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), prisma: { $transaction: vi.fn() } }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), prisma: { $transaction: vi.fn(), datasetMetadata: { findUnique: vi.fn(async () => ({revision: 7})) } } }));
 vi.mock("@/auth", () => ({ auth: mocks.auth }));
 vi.mock("@/lib/db", () => ({ prisma: mocks.prisma }));
 import { TEMPLATE_CSV, detectColumns, parseCSV } from "@/lib/import/csv-validator";
 import { importPreviewToken, readImportRequest, requireLocalImport } from "@/lib/import/request";
+import { importOptionsSchema } from "@/lib/import/options";
 import { POST as columns } from "@/app/api/import/columns/route";
 import { POST as validate } from "@/app/api/import/validate/route";
 import { POST as commit } from "@/app/api/import/commit/route";
@@ -51,7 +52,9 @@ describe("import preview and write boundary", () => {
     const preview = await response.json();
     expect(response.status).toBe(200); expect(preview.success).toBe(true);
     expect(preview.summary.mrr).toBe(200); expect(preview.validRows[0].mrr).toBe(125.5);
-    expect(preview.previewToken).toBe(importPreviewToken(source, mappings));
+    expect(preview.revision).toBe(7);
+    expect(preview.previewToken).toBe(importPreviewToken(source, mappings, importOptionsSchema.parse({expectedRevision:7})));
+    expect(preview.previewToken).not.toBe(importPreviewToken(source, mappings, importOptionsSchema.parse({expectedRevision:8})));
     expect(importPreviewToken(source, mappings)).not.toBe(importPreviewToken(source, { ...mappings, mrr: null }));
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -60,7 +63,7 @@ describe("import preview and write boundary", () => {
     expect((await commit(request("commit", { csv: TEMPLATE_CSV, previewToken }))).status).toBe(400);
     expect((await commit(request("commit", { csv: TEMPLATE_CSV, confirmReplace: true, previewToken: "old" }))).status).toBe(400);
     const malformed = TEMPLATE_CSV.replace("125.50", "bad");
-    const result = await commit(request("commit", { csv: malformed, confirmReplace: true, previewToken: importPreviewToken(malformed) }));
+    const result = await commit(request("commit", { csv: malformed, confirmReplace: true, options: importOptionsSchema.parse({expectedRevision:7}), previewToken: importPreviewToken(malformed, undefined, importOptionsSchema.parse({expectedRevision:7})) }));
     expect(result.status).toBe(400); expect((await result.json()).errors.length).toBeGreaterThan(0);
     const brokenCsv = 'name\n"unclosed';
     expect((await commit(request("commit", { csv: brokenCsv, confirmReplace: true, previewToken: importPreviewToken(brokenCsv) }))).status).toBe(400);

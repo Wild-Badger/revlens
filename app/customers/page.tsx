@@ -75,6 +75,9 @@ interface UsageSummary {
 
 interface CustomerDetail {
   attributeHistory?: AttributeVersion[];
+  attributeHistoryStatus?: "ready" | "pending" | "unavailable";
+  revision?: number;
+  analyticsRevision?: number;
   asOf: string;
   id: string;
   name: string;
@@ -606,7 +609,7 @@ export default function CustomersPage() {
                   <details className="mt-3 text-sm text-neutral-300"><summary className="cursor-pointer">How this flag is calculated</summary><p className="mt-2 leading-6">Explainable heuristic, not a prediction: failed invoices +3, more than two open invoices +2, MRR below 80% of largest recorded subscription +2, 1–19 supplied events +2, reactivated status +1. Medium ≥2; high ≥4. Missing invoice/usage records are unknown, not adverse evidence. Leads and already-churned accounts are not scored.</p></details>
                 </div>
 
-                <AttributeHistory versions={selectedCustomer.attributeHistory ?? []} />
+                <AttributeHistory versions={selectedCustomer.attributeHistory ?? []} status={selectedCustomer.attributeHistoryStatus} revision={selectedCustomer.revision} analyticsRevision={selectedCustomer.analyticsRevision} />
 
                 {/* Revenue History Chart */}
                 <div className="space-y-2">

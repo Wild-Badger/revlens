@@ -8,6 +8,7 @@ const asOf = new Date("2026-09-30T23:59:59.999Z");
 vi.mock("@/lib/dataset", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/dataset")>(),
   getAsOf: vi.fn(async () => new Date("2026-09-30T23:59:59.999Z")),
+  getDatasetContext: vi.fn(async () => ({asOf: new Date("2026-09-30T23:59:59.999Z")})),
 }));
 
 describe("getCustomersList", () => {
@@ -416,5 +417,18 @@ describe("customer snapshot evidence", () => {
     expect(mockPrisma.customer.findMany).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining(include) }));
     expect(mockPrisma.customer.findUnique).toHaveBeenNthCalledWith(1, expect.objectContaining({ include: expect.objectContaining(include) }));
     expect(mockPrisma.customer.findUnique).toHaveBeenNthCalledWith(2, expect.objectContaining({ include: expect.objectContaining({ subscriptions: include.subscriptions }) }));
+  });
+});
+
+
+describe("customer detail revision consistency", () => {
+  it("keeps operational data visible while hiding uncaptured historical versions", async () => {
+    mockPrisma.datasetMetadata.findUnique.mockResolvedValue({ revision: 4, analyticsRevision: 3, pipelineStatus: "failed", sourceId: "active-source" });
+    mockPrisma.customer.findUnique.mockResolvedValue({ ...mockSubscription().customer, subscriptions: [mockSubscription()], invoices: [], productEvents: [] });
+    const detail=await getCustomerDetail("cust-1");
+    expect(detail).toMatchObject({attributeHistoryStatus:"pending",revision:4,analyticsRevision:3,attributeHistory:[]});
+    expect(detail!.name).toBeTruthy();
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function),expect.objectContaining({isolationLevel:"RepeatableRead"}));
+    mockPrisma.datasetMetadata.findUnique.mockResolvedValue(null);
   });
 });

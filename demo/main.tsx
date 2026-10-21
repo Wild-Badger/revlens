@@ -16,7 +16,7 @@ function LocalWorkspace() {
     <h1 className="text-2xl font-semibold">Use your own data in the local app</h1>
     <p className="text-base leading-7 text-neutral-300">This public demo is read-only. Its 60 fictional customers and dated subscription intervals demonstrate the same analytics pages and calculations as the local application.</p>
     <p className="text-base leading-7 text-neutral-300">CSV preview, import, account access and backup restore are available in the local version. Set it up on your computer to work with your own files. This demo has no upload service.</p>
-    <a className="inline-block rounded-md bg-emerald-700 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-800" href="https://github.com/Wild-Badger/revlens#use-your-own-data-locally" target="_blank" rel="noreferrer">Local app setup and source ↗</a>
+    <a className="inline-block rounded-md bg-emerald-700 px-4 py-3 text-sm font-medium text-white hover:bg-emerald-800" href="https://github.com/Wild-Badger/revlens#run-your-private-workspace" target="_blank" rel="noreferrer">Local app setup and source ↗</a>
     <p className="text-sm text-neutral-400">USD only · subscription MRR, not cash collected · synthetic snapshot: September 30, 2026.</p>
   </section>;
 }

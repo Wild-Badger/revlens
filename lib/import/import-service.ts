@@ -3,6 +3,8 @@ import { resetSnapshotRows } from "@/lib/attribute-history";
 import { importOptionsSchema, type ImportOptions } from "./options";
 import { createHash } from "node:crypto";
 import { Prisma, PrismaClient } from "@prisma/client";
+import { captureDataset, DatasetConflictError } from "@/lib/dataset-backup";
+import { saveCheckpoint } from "@/lib/dataset-checkpoints";
 import { planSourceKey, subscriptionSourceKey, type CustomerCsvRow, type ImportValidationResult } from "./csv-validator";
 
 export function stableImportId(kind: string, sourceId: string): string {
@@ -18,6 +20,7 @@ export interface ImportResult {
   success: true; imported: number; total: number;
   counts: { customers: number; subscriptions: number; invoices: number; events: number };
   errors: never[]; asOf: string; currency: "USD"; revision: number; analyticsStatus?: string; message?: string;
+  checkpointId?: string;
 }
 const date = (value: string) => new Date(`${value}T00:00:00.000Z`);
 
@@ -26,6 +29,7 @@ export async function importCustomersData(prisma: PrismaClient, validation: Impo
   if (validation.errors.length || !validation.validRows.length || !validation.summary.asOf) throw new Error("Validate the complete dataset before import");
   if (options.historyStart && options.historyStart > validation.summary.asOf) throw new Error("Coverage start follows the observation date");
   let revision = 0;
+  let checkpointId: string | undefined;
   const customers = new Map<string, CustomerCsvRow>(), invoices = new Map<string, CustomerCsvRow>(), events = new Map<string, CustomerCsvRow>();
   const plans = new Map<string, CustomerCsvRow>();
   const subscriptions = new Map<string, CustomerCsvRow>();
@@ -51,10 +55,14 @@ export async function importCustomersData(prisma: PrismaClient, validation: Impo
     // ponytail: one operator and bounded datasets; serialize replace/restore rather than add a job system.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(20261020, 2)`;
     const previous = await tx.datasetMetadata.findUnique({ where: { id: "local" } });
-    if (previous && previous.pipelineStatus !== "ready") throw new ImportStateError("Analytics pending: refresh before replacing another snapshot");
+    if ((options.mode === "new" || options.expectedRevision !== undefined) && options.expectedRevision !== (previous?.revision ?? 0)) throw new DatasetConflictError("revision_conflict", previous?.revision ?? 0);
+    if (previous && (previous.pipelineStatus !== "ready" || previous.analyticsRevision !== previous.revision)) throw new ImportStateError("Analytics pending: refresh before replacing another snapshot");
     if (previous && options.mode === "update" && new Date(`${validation.summary.asOf}T23:59:59.999Z`) < previous.asOf) throw new ImportStateError("Older observations need an explicit new dataset or backup restore");
     revision = (previous?.revision ?? 0) + 1;
-    if (options.mode === "new") await resetSnapshotRows(tx);
+    if (options.mode === "new") {
+      checkpointId = await saveCheckpoint(await captureDataset(tx), previous?.revision ?? 0, "new-source");
+      await resetSnapshotRows(tx);
+    }
     const sourceId = previous && options.mode === "update" ? previous.sourceId : randomUUID();
     await tx.payment.deleteMany();
     await tx.invoice.deleteMany();
@@ -96,8 +104,9 @@ export async function importCustomersData(prisma: PrismaClient, validation: Impo
       create: { id: "local", sourceId, sourceName: options.sourceName, historyStart: options.historyStart ? date(options.historyStart) : null, historyComplete: options.historyComplete, revision, analyticsRevision: -1, pipelineStatus: "pending", asOf: new Date(`${validation.summary.asOf}T23:59:59.999Z`), currency: "USD", rowCount: validation.summary.totalRows },
       update: { sourceId, sourceName: options.sourceName, historyStart: options.historyStart ? date(options.historyStart) : null, historyComplete: options.historyComplete, revision, analyticsRevision: -1, pipelineStatus: "pending", asOf: new Date(`${validation.summary.asOf}T23:59:59.999Z`), currency: "USD", rowCount: validation.summary.totalRows, importedAt: new Date() },
     });
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
+  // Read the revision AFTER acquiring the advisory lock, including a writer that just committed while we waited.
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 30000 });
   return { success: true, imported: customers.size, total: validation.summary.totalRows,
     counts: { customers: customers.size, subscriptions: validation.summary.subscriptions, invoices: invoices.size, events: validation.summary.events },
-    errors: [], revision, asOf: validation.summary.asOf, currency: "USD" };
+    errors: [], revision, checkpointId, asOf: validation.summary.asOf, currency: "USD" };
 }

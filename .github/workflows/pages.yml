@@ -76,6 +76,7 @@ jobs:
           uv run python -m analytics.cli demo-history
           uv run python -m analytics.cli export-report
           uv run --group benchmark python -m analytics.cli benchmark
+          uv run python -m analytics.cli examples
           pnpm exec tsx scripts/export-demo.ts
           pnpm exec tsx scripts/verify-demo.ts
         env:
@@ -85,6 +86,7 @@ jobs:
       - name: Validate and retain versioned release artifacts
         run: |
           uv run python scripts/verify-artifacts.py
+          git diff --exit-code -- docs/examples
           git restore -- analytics/reports demo/data.json
       - run: pnpm exec tsc --noEmit
       - run: pnpm test --maxWorkers=2

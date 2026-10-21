@@ -101,3 +101,31 @@ def capture_demo_change():
             db.execute("update customers set industry='Developer Tools' where id=%s",(identity("customer:0"),))
             db.execute("update plans set base_price=59 where id=%s",(identity("plan:Starter"),))
             db.execute("update dataset_metadata set revision=revision+1,pipeline_status='pending' where id='local'")
+
+
+def export_csv():
+    """Export deterministic subscription facts from the identified fictional release database."""
+    import csv
+    import io
+    from pathlib import Path
+    with connect() as db:
+        assert db.execute("select current_database() as name").fetchone()["name"].endswith("_demo")
+        assert not db.execute("select count(*) as n from customers where domain is null or domain not like '%%.example'").fetchone()["n"]
+        rows = db.execute("""select c.id as customer_id,c.name,c.domain,c.industry,c.company_size,c.country,c.acquisition_channel,c.status,
+          '2026-09-30' as as_of,'USD' as currency,c.created_at::date::text as customer_created_at,
+          s.id as subscription_id,p.id as plan_id,p.base_price as plan_base_price,p.seat_price as plan_seat_price,p.name as plan_name,
+          s.billing_interval,s.seats,s.current_mrr as mrr,s.started_at::date::text as subscription_started_at,s.ended_at::date::text as subscription_ended_at
+          from customers c join subscriptions s on s.customer_id=c.id join plans p on p.id=s.plan_id order by c.id,s.started_at,s.id""").fetchall()
+    output = Path("docs/examples")
+    output.mkdir(parents=True, exist_ok=True)
+    def write(name, records):
+        stream = io.StringIO(newline="")
+        writer = csv.DictWriter(stream, fieldnames=list(rows[0]), lineterminator="\n")
+        writer.writeheader(); writer.writerows(records)
+        (output / name).write_text(stream.getvalue(), encoding="utf-8", newline="")
+    write("revlens-48-months.csv", rows)
+    invalid = [dict(row) for row in rows]
+    invalid[0]["subscription_ended_at"] = invalid[0]["subscription_started_at"]
+    invalid[1]["customer_created_at"] = "2026-10-01"
+    write("revlens-invalid.csv", invalid)
+    return {"files": 2, "rows": len(rows), "coverageStart": START, "asOf": AS_OF, "scope": "subscription MRR only; invoices/payments/events intentionally absent"}

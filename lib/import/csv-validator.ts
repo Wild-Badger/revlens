@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { factDateError, invalidIntervals } from "@/lib/dataset-temporal";
 
 export const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 2000;
@@ -84,7 +85,7 @@ export const CustomerCsvRow = z.object({
   const eventFields = ["event_id", "event_name", "event_count", "event_date"] as const;
   if (eventFields.some(field => row[field] !== undefined)) for (const field of eventFields) if (row[field] === undefined) error(field, "Required for an event");
   for (const field of ["customer_created_at", "subscription_started_at", "subscription_ended_at", "invoice_date", "invoice_paid_at", "invoice_failed_at", "event_date"] as const) {
-    if (row[field] && row[field]! > row.as_of) error(field, "Date cannot be after dataset as_of");
+    if (factDateError(row[field], row.as_of)) error(field, "Date cannot be after dataset as_of");
   }
   if (row.invoice_date && row.invoice_date < row.customer_created_at) error("invoice_date", "Invoice cannot precede customer creation");
   if (row.event_date && row.event_date < row.customer_created_at) error("event_date", "Event cannot precede customer creation");
@@ -207,10 +208,7 @@ export function validateImportCSV(content: string, mappings?: ColumnMappings): I
   }
   for (const [customerId, intervals] of byCustomer) {
     intervals.sort((a, b) => a.subscription_started_at!.localeCompare(b.subscription_started_at!));
-    for (let index = 1; index < intervals.length; index++) {
-      const previous = intervals[index - 1], current = intervals[index];
-      if (!previous.subscription_ended_at || current.subscription_started_at! < previous.subscription_ended_at) errors.push({ row: subscriptionLines.get(subscriptionSourceKey(current))!, field: "subscription_started_at", message: "Subscription intervals for one customer cannot overlap. End the previous interval on or before the next start; simultaneous subscriptions are not supported by this CSV format" });
-    }
+    for (const current of invalidIntervals(intervals.map(row => ({ customerId, startedAt: row.subscription_started_at!, endedAt: row.subscription_ended_at ?? null, row })))) errors.push({ row: subscriptionLines.get(subscriptionSourceKey(current.row))!, field: "subscription_started_at", message: "Subscription intervals for one customer cannot overlap. End the previous interval on or before the next start; simultaneous subscriptions are not supported by this CSV format" });
     const customer = customerRows.get(customerId)!;
     const ongoing = intervals.filter(row => !row.subscription_ended_at);
     if (["active", "reactivated"].includes(customer.status) && !ongoing.length) errors.push({ row: subscriptionLines.get(subscriptionSourceKey(intervals[intervals.length - 1]))!, field: "status", message: "An active or reactivated customer must have an ongoing subscription interval at as_of" });

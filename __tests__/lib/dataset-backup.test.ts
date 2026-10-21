@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { checkpointFile, listCheckpoints, unwrapCheckpoint } from "@/lib/dataset-checkpoints";
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { DatasetBackupError, exportDatasetBackup, isLocalDatasetRequest, parseDatasetBackup, restoreDatasetBackup, RESTORE_CONFIRMATION } from "@/lib/dataset-backup";
+import { DatasetBackupError, DatasetConflictError, exportDatasetBackup, isLocalDatasetRequest, parseDatasetBackup, restoreDatasetBackup, RESTORE_CONFIRMATION } from "@/lib/dataset-backup";
 
 const { auth, database } = vi.hoisted(() => ({ auth: vi.fn(), database: { $transaction: vi.fn() } }));
 vi.mock("@/auth", () => ({ auth }));
@@ -44,14 +48,17 @@ function transactionMock() {
 }
 
 describe("local business backup contract", () => {
-  beforeEach(() => {
+  let runtime: string;
+  beforeEach(async () => {
+    runtime = await mkdtemp(path.join(tmpdir(), "revlens-checkpoints-test-"));
+    vi.stubEnv("REV_ANALYTICS_RUNTIME", runtime);
     vi.clearAllMocks();
     vi.stubEnv("LOCAL_WORKSPACE_MODE", "true");
     vi.stubEnv("DEMO_MODE", "false");
     vi.stubEnv("AUTH_URL", "");
     auth.mockResolvedValue({ user: { id: "synthetic-owner", role: "admin" } });
   });
-  afterEach(() => vi.unstubAllEnvs());
+  afterEach(async () => { vi.unstubAllEnvs(); await rm(runtime, { recursive: true, force: true }); });
 
   it("requires the configured browser origin despite Next's internal localhost URL", async () => {
     const { POST } = await import("@/app/api/dataset/restore/route");
@@ -88,8 +95,66 @@ describe("local business backup contract", () => {
     const backup = fixture();
     change(backup);
     const { db } = transactionMock();
-    await expect(restoreDatasetBackup(db, backup)).rejects.toBeInstanceOf(DatasetBackupError);
+    await expect(restoreDatasetBackup(db, backup, { expectedRevision: 1 })).rejects.toBeInstanceOf(DatasetBackupError);
     expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("checks the presented revision and requires a specific pending discard before any checkpoint or delete", async () => {
+    const { db, tx, calls } = transactionMock();
+    await expect(restoreDatasetBackup(db, fixture(), { expectedRevision: 0 })).rejects.toMatchObject({ code: "revision_conflict", revision: 1 });
+    const metadata = tx.datasetMetadata as { findUnique: ReturnType<typeof vi.fn> };
+    const current = await (tx.datasetMetadata as { findUnique: () => Promise<Record<string, unknown>> }).findUnique();
+    metadata.findUnique.mockResolvedValue({ ...current, pipelineStatus: "pending", analyticsRevision: -1 });
+    await expect(restoreDatasetBackup(db, fixture(), { expectedRevision: 1 })).rejects.toBeInstanceOf(DatasetConflictError);
+    expect(calls.some(call => call.startsWith("delete:"))).toBe(false);
+    expect(await listCheckpoints()).toEqual([]);
+    await restoreDatasetBackup(db, fixture(), { expectedRevision: 1, discardPendingRevision: 1 });
+    const list = await listCheckpoints(); expect(list).toHaveLength(1);
+    const checkpoint = JSON.parse(await readFile(await checkpointFile(list[0].id), "utf8"));
+    expect(checkpoint.backup.metadata.pipelineStatus).toBe("pending");
+    expect(parseDatasetBackup(checkpoint).customers).toEqual(fixture().customers);
+    checkpoint.backup.customers[0].name = "tampered";
+    expect(() => unwrapCheckpoint(checkpoint)).toThrow("checksum");
+    await expect(checkpointFile("../other")).rejects.toThrow("ID");
+  });
+
+  it("aborts before deletion if checkpoint storage cannot be written", async () => {
+    const { db, calls } = transactionMock();
+    const blocked = path.join(runtime, "file"); await writeFile(blocked, "not a directory");
+    vi.stubEnv("REV_ANALYTICS_RUNTIME", blocked);
+    await expect(restoreDatasetBackup(db, fixture(), { expectedRevision: 1 })).rejects.toThrow();
+    expect(calls.some(call => call.startsWith("delete:"))).toBe(false);
+  });
+
+  it("preserves invalid raw state in a checkpoint without allowing it to bypass restore validation", async () => {
+    const { db, tx } = transactionMock();
+    (tx.subscription as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([{ ...fixture().subscriptions[0], endedAt: date }]);
+    const result = await restoreDatasetBackup(db, fixture(), { expectedRevision: 1 });
+    const checkpoint = JSON.parse(await readFile(await checkpointFile(result.checkpointId), "utf8"));
+    expect(checkpoint.backup.subscriptions[0].endedAt).toBe(date);
+    expect(() => parseDatasetBackup(checkpoint)).toThrow("duration");
+  });
+
+  it("rejects overlapping, zero-length and future facts but accepts adjacent intervals and later capture/export dates", () => {
+    const backup = fixture();
+    backup.subscriptions.push({ ...backup.subscriptions[0], id: ids.payment });
+    expect(() => parseDatasetBackup(backup)).toThrow("overlap");
+    backup.subscriptions.pop();
+    const extended = { ...backup, metadata: { ...backup.metadata, historyStart: "2026-11-01T00:00:00.000Z", historyComplete: true } };
+    expect(() => parseDatasetBackup(extended)).toThrow("Coverage");
+    extended.metadata.historyStart = "2026-09-02T00:00:00.000Z";
+    expect(() => parseDatasetBackup(extended)).toThrow("Coverage");
+    backup.productEvents[0].timestamp = "2026-10-02T00:00:00.000Z";
+    expect(() => parseDatasetBackup(backup)).toThrow("after");
+    backup.productEvents[0].timestamp = date;
+    backup.exportedAt = "2026-10-21T00:00:00.000Z";
+    backup.metadata.importedAt = backup.exportedAt;
+    expect(parseDatasetBackup(backup).exportedAt).toBe(backup.exportedAt);
+    backup.subscriptions[0].startedAt = "2026-09-01T00:00:00.000Z";
+    backup.customers[0].createdAt = backup.subscriptions[0].startedAt;
+    Object.assign(backup.subscriptions[0], { endedAt: date });
+    backup.subscriptions.push({ ...backup.subscriptions[0], id: ids.payment, startedAt: date, endedAt: null });
+    expect(parseDatasetBackup(backup).subscriptions).toHaveLength(2);
   });
 
   it("exports only business tables from one repeatable-read snapshot", async () => {
@@ -102,7 +167,7 @@ describe("local business backup contract", () => {
 
   it("replaces in FK order in a single transaction, retaining event ID precision", async () => {
     const { tx, db, calls } = transactionMock();
-    await restoreDatasetBackup(db, fixture());
+    await restoreDatasetBackup(db, fixture(), { expectedRevision: 1 });
     expect(calls).toEqual(["lock", "lock", "delete:payment", "delete:productEvent", "delete:invoice", "delete:subscription", "delete:customer", "delete:plan", "create:customer", "create:plan", "create:subscription", "create:invoice", "create:payment", "create:productEvent", "sequence"]);
     expect((tx.productEvent as { createMany: ReturnType<typeof vi.fn> }).createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({ id: 9007199254740993n })] });
     expect(db.$transaction).toHaveBeenCalledTimes(1);
@@ -113,7 +178,7 @@ describe("local business backup contract", () => {
   it("propagates a failed write out of the transaction for database rollback", async () => {
     const { db, tx } = transactionMock();
     (tx.invoice as { createMany: ReturnType<typeof vi.fn> }).createMany.mockRejectedValue(new Error("synthetic write failure"));
-    await expect(restoreDatasetBackup(db, fixture())).rejects.toThrow("synthetic write failure");
+    await expect(restoreDatasetBackup(db, fixture(), { expectedRevision: 1 })).rejects.toThrow("synthetic write failure");
     expect((tx.datasetMetadata as { create: ReturnType<typeof vi.fn> }).create).not.toHaveBeenCalled();
     expect(tx.$queryRaw).not.toHaveBeenCalled();
   });
@@ -126,6 +191,22 @@ describe("local business backup contract", () => {
     vi.stubEnv("DEMO_MODE", "false");
     vi.stubEnv("LOCAL_WORKSPACE_MODE", "false");
     expect(isLocalDatasetRequest(new Request("http://localhost/api/dataset/backup"))).toBe(false);
+  });
+
+  it("lists and downloads opaque checkpoints only for the authenticated local owner", async () => {
+    const { GET: list } = await import("@/app/api/dataset/checkpoints/route");
+    const { GET: download } = await import("@/app/api/dataset/checkpoints/[id]/route");
+    const request=new Request("http://127.0.0.1/api/dataset/checkpoints");
+    auth.mockResolvedValue(null); expect((await list(request)).status).toBe(401);
+    auth.mockResolvedValue({user:{role:"viewer"}}); expect((await list(request)).status).toBe(403);
+    auth.mockResolvedValue({user:{role:"admin"}});
+    const { db }=transactionMock(); const saved=await restoreDatasetBackup(db,fixture(),{expectedRevision:1});
+    const body=await (await list(request)).json();
+    expect(body.checkpoints).toHaveLength(1); expect(body.checkpoints[0]).not.toHaveProperty("path");
+    const response=await download(request,{params:Promise.resolve({id:saved.checkpointId})});
+    expect(response.status).toBe(200); expect(parseDatasetBackup(await response.json()).customers).toEqual(fixture().customers);
+    expect((await download(request,{params:Promise.resolve({id:"../outside"})})).status).toBe(404);
+    expect((await list(new Request("https://example.test/api/dataset/checkpoints"))).status).toBe(403);
   });
 
   it("guards both routes before database access", async () => {

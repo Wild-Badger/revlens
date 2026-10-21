@@ -3,6 +3,9 @@ import { PageHeader } from "@portfolio/ui/components/page-header";
 import { getDatasetContext } from "@/lib/dataset";
 import { DatasetControls } from "@/components/dataset-controls";
 
+// This server page reads mutable local metadata; never freeze its empty build-time dataset.
+export const dynamic = "force-dynamic";
+
 export default async function DataPage() {
   const context = await getDatasetContext();
   const local = process.env.LOCAL_WORKSPACE_MODE === "true" && process.env.DEMO_MODE !== "true";

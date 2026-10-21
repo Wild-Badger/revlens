@@ -1,6 +1,7 @@
 import { analyticsService } from "@/lib/analytics-service";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { DatasetConflictError } from "@/lib/dataset-backup";
 import { importCustomersData, ImportStateError } from "@/lib/import/import-service";
 import { validateImportCSV } from "@/lib/import/csv-validator";
 import { ImportRequestError, importPreviewToken, readImportRequest, requireLocalImport } from "@/lib/import/request";
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
     }
     const { csv, mappings, confirmed, previewToken, options } = input;
     if (!confirmed) throw new ImportRequestError("Confirm replacement of the complete local dataset after reviewing the preview");
+    if (options.expectedRevision === undefined) throw new ImportRequestError("Review a fresh preview with the current dataset revision");
     if (!previewToken || previewToken !== importPreviewToken(csv, mappings, options)) throw new ImportRequestError("File or mapping changed. Validate and review a fresh preview before replacing the dataset");
     let validation;
     try { validation = validateImportCSV(csv, mappings); }
@@ -25,6 +27,7 @@ export async function POST(request: Request) {
     try { await analyticsService("/v1/refresh", saved.revision); return NextResponse.json({ ...saved, analyticsStatus: "ready" }); }
     catch { return NextResponse.json({ ...saved, analyticsStatus: "pending", message: "Data saved; analytics pending. Start the Python service and retry refresh from Data workspace." }); }
   } catch (error) {
+    if (error instanceof DatasetConflictError) return NextResponse.json({ error: error.message, code: error.code, revision: error.revision }, { status: 409 });
     if (error instanceof ImportRequestError || error instanceof ImportStateError) return NextResponse.json({ error: error.message }, { status: error.status });
     // Do not return database errors or log supplied rows; they can include private dataset values.
     return NextResponse.json({ error: "No changes saved. Import failed and the transaction was rolled back. Retry, or correct the CSV and validate again." }, { status: 500 });

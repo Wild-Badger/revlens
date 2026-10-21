@@ -8,6 +8,8 @@ vi.mock("@/lib/db", () => ({
     invoice: { findMany: vi.fn() },
     payment: { findMany: vi.fn() },
     productEvent: { findMany: vi.fn() },
+    datasetMetadata: { findUnique: vi.fn(async () => null) },
+    $transaction: vi.fn(async (run) => run((await import("@/lib/db")).prisma)),
     $disconnect: vi.fn(),
   },
 }));
@@ -21,5 +23,7 @@ export const mockPrisma = prisma as unknown as {
   invoice: { findMany: ReturnType<typeof vi.fn> };
   payment: { findMany: ReturnType<typeof vi.fn> };
   productEvent: { findMany: ReturnType<typeof vi.fn> };
+  datasetMetadata: { findUnique: ReturnType<typeof vi.fn> };
+  $transaction: ReturnType<typeof vi.fn>;
   $disconnect: ReturnType<typeof vi.fn>;
 };

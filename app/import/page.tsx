@@ -11,7 +11,7 @@ import type { ImportOptions } from "@/lib/import/options";
 import type { ImportResult } from "@/lib/import/import-service";
 import { MAPPING_STORAGE_KEY, reuseColumnMappings } from "@/lib/import/column-mappings";
 
-type Preview = ImportValidationResult & { success: boolean; previewToken: string };
+type Preview = ImportValidationResult & { success: boolean; previewToken: string; revision: number };
 const button = "inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50";
 const secondary = "inline-flex min-h-11 items-center justify-center rounded-md border border-neutral-600 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-800 disabled:opacity-50";
 const usd = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -73,7 +73,7 @@ export default function ImportWizardPage() {
       const response = await fetch("/api/import/validate", { method: "POST", body });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Validation failed");
-      setPreview(data);
+      setPreview(data); setOptions(current => ({ ...current, expectedRevision: data.revision }));
       if (data.success) {
         try { localStorage.setItem(MAPPING_STORAGE_KEY, JSON.stringify(mappings)); setMappingNotice("Column mapping remembered on this browser. No CSV contents or customer records are saved in browser storage."); }
         catch { setMappingNotice("Browser storage is unavailable. This import works, but its mapping will not be remembered."); }
@@ -105,6 +105,7 @@ export default function ImportWizardPage() {
         <p className="max-w-3xl text-sm leading-relaxed text-neutral-300">Import USD subscription history, including dated price changes, churn and reactivation. Each interval has a constant MRR and a unique subscription_id; end the previous interval before the next starts. Your existing single-interval CSV also works without an ID. Optional invoices and events can wait. A paid invoice is not a confirmed bank payment.</p>
         <div className="flex flex-wrap gap-3">
           <DownloadButton className={secondary} href="/api/import/template" filename="revlens-synthetic-template-2026-09-30.csv">Download dated synthetic template</DownloadButton>
+          {!demo && <><DownloadButton className={secondary} href="/api/import/example" filename="revlens-48-months.csv">Download 48-month MRR example</DownloadButton><DownloadButton className={secondary} href="/api/import/example?invalid=true" filename="revlens-invalid.csv">Download invalid example · validation check</DownloadButton></>}
           {!demo && <DownloadButton className={secondary} href="/api/dataset/backup" filename="revlens-backup.json">Download current dataset backup</DownloadButton>}
         </div>
         <p className="text-sm text-neutral-300">Template: 3 customers, 2 currently active subscriptions, MRR $200.00, 3 invoices with total face value $440.00, and 4 observed events. Observation date: 30 Sep 2026. These are fictional records, never your customers.</p>
@@ -123,7 +124,7 @@ export default function ImportWizardPage() {
           <h2 className="text-lg font-semibold">1. Choose and map your CSV</h2>
           <label className="block space-y-2 text-sm text-neutral-200">
             <span>UTF-8 CSV · maximum 2 MiB, 2,000 rows and 10,000 total product events</span>
-            <input type="file" accept=".csv,text/csv" disabled={busy !== null} onChange={event => { void chooseFile(event.target.files?.[0] ?? null); event.target.value = ""; }} className="block w-full rounded border border-neutral-600 p-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-neutral-700 file:px-3 file:py-2 file:text-white" />
+            <input name="csvFile" type="file" accept=".csv,text/csv" disabled={busy !== null} onChange={event => { void chooseFile(event.target.files?.[0] ?? null); event.target.value = ""; }} className="block w-full rounded border border-neutral-600 p-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-neutral-700 file:px-3 file:py-2 file:text-white" />
           </label>
           {busy === "detect" && <p role="status" className="text-sm text-neutral-300">Reading columns…</p>}
           {file && <>
@@ -154,7 +155,7 @@ export default function ImportWizardPage() {
 
         {preview && !result && <Card className="space-y-4 p-5">
           <h2 className="text-lg font-semibold">2. Review the complete replacement</h2>
-          <p className="text-sm text-neutral-200">Destination: dedicated local PostgreSQL dataset · USD · observation date {preview.summary.asOf ?? "not valid"}. This operation replaces customers, subscriptions, plans, invoices, payments and product events; the owner account stays.</p>
+          <p className="text-sm text-neutral-200">Destination: revision {preview.revision} of the dedicated local PostgreSQL dataset · USD · observation date {preview.summary.asOf ?? "not valid"}. This operation replaces customers, subscriptions, plans, invoices, payments and product events; the owner account stays.</p>
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[["Source rows", preview.summary.totalRows], ["Valid rows", preview.summary.validRows], ["Customers", preview.summary.customers], ["Subscriptions", preview.summary.subscriptions], ["Invoices", preview.summary.invoices], ["Events", preview.summary.events], ["Active MRR", usd(preview.summary.mrr)], ["Invoice face value", usd(preview.summary.invoiceTotal)]].map(([label, value]) => <div key={label} className="rounded border border-neutral-700 p-3"><dt className="text-sm text-neutral-300">{label}</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{value}</dd></div>)}
           </dl>
@@ -172,7 +173,7 @@ export default function ImportWizardPage() {
         {result && <Card className="space-y-4 border border-emerald-500/50 p-5" role="status">
           <h2 className="text-lg font-semibold">{result.imported} customers saved{result.analyticsStatus === "pending" ? " · analytics pending" : ""}</h2>{result.message && <p className="text-sm">{result.message}</p>}
           <p className="text-sm text-neutral-200">Complete replacement saved: {result.counts.subscriptions} subscriptions, {result.counts.invoices} invoices and {result.counts.events} events. USD · observed {result.asOf}. The dataset persists across browser reloads and server restarts.</p>
-          <div className="flex flex-wrap gap-3"><Link className={button} href={result.analyticsStatus === "pending" ? "/data" : "/dashboard"}>{result.analyticsStatus === "pending" ? "Retry analytics from Data workspace" : "See what changed in revenue"}</Link><Link className={secondary} href="/customers">Analyze customers</Link><button className={secondary} onClick={() => { setResult(null); setPreview(null); setFile(null); setHeaders([]); }}>Import a different dataset</button></div>
+          {result.checkpointId && <a className="text-sm underline" href={`/api/dataset/checkpoints/${result.checkpointId}`} download>Download automatic checkpoint of the previous source</a>}<div className="flex flex-wrap gap-3"><Link className={button} href={result.analyticsStatus === "pending" ? "/data" : "/dashboard"}>{result.analyticsStatus === "pending" ? "Retry analytics from Data workspace" : "See what changed in revenue"}</Link><Link className={secondary} href="/customers">Analyze customers</Link><button className={secondary} onClick={() => { setResult(null); setPreview(null); setFile(null); setHeaders([]); }}>Import a different dataset</button></div>
         </Card>}
       </>}
 

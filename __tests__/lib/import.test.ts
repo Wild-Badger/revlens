@@ -117,7 +117,7 @@ describe("canonical dated CSV contract", () => {
 
 function transactionStore(failInvoices = false) {
   type RecordValue = Record<string, unknown>;
-  const original: Record<string, RecordValue[]> = { customer: [{ id: "prior-customer" }], plan: [{ id: "prior-plan" }], invoice: [], payment: [], productEvent: [], subscription: [], datasetMetadata: [{ id: "local", pipelineStatus: "ready", revision: 0, sourceId: "92b02e13-2856-4a84-90c3-dedbefd24a56", asOf: new Date("2020-01-01Z") }] };
+  const original: Record<string, RecordValue[]> = { customer: [{ id: "prior-customer" }], plan: [{ id: "prior-plan" }], invoice: [], payment: [], productEvent: [], subscription: [], datasetMetadata: [{ id: "local", pipelineStatus: "ready", revision: 0, analyticsRevision: 0, sourceId: "92b02e13-2856-4a84-90c3-dedbefd24a56", asOf: new Date("2020-01-01Z") }] };
   let state = structuredClone(original);
   const transaction = vi.fn(async (run: (tx: unknown) => Promise<void>) => {
     const working = Object.fromEntries(Object.entries(state).map(([name, records]) => [name, records.map(record => ({ ...record }))]));
@@ -130,7 +130,7 @@ function transactionStore(failInvoices = false) {
     };
     await run(tx); state = working;
   });
-  return { prisma: { $transaction: transaction } as unknown as PrismaClient, transaction, state: () => state, markReady: () => { state.datasetMetadata[0].pipelineStatus = "ready"; }, original };
+  return { prisma: { $transaction: transaction } as unknown as PrismaClient, transaction, state: () => state, markReady: () => { state.datasetMetadata[0].pipelineStatus = "ready"; state.datasetMetadata[0].analyticsRevision = state.datasetMetadata[0].revision; }, original };
 }
 function localMode() { vi.stubEnv("LOCAL_WORKSPACE_MODE", "true"); vi.stubEnv("DEMO_MODE", "false"); vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false"); }
 

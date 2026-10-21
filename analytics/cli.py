@@ -7,13 +7,16 @@ from analytics.pipeline import refresh, prediction_report
 
 def main():
     parser=argparse.ArgumentParser(description="Local RevLens analytics and reproducible public benchmarks")
-    parser.add_argument("command",choices=("refresh","seed","benchmark","export-report","demo-history"))
+    parser.add_argument("command",choices=("refresh","seed","benchmark","export-report","demo-history","examples"))
     parser.add_argument("--download",action="store_true",help="Reaggregate the official UCI workbook; raw files remain ignored")
     parser.add_argument("--output",type=Path,default=Path("analytics/reports/demo-prediction.json"))
     args=parser.parse_args()
     if args.command=="seed":
         from analytics.fixtures import seed
         result=seed()
+    elif args.command=="examples":
+        from analytics.fixtures import export_csv
+        result=export_csv()
     elif args.command=="demo-history":
         from analytics.fixtures import capture_demo_change
         refresh();capture_demo_change();result=refresh()

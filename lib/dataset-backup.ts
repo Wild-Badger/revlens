@@ -3,6 +3,8 @@ import { readSnapshotRows, restoreSnapshotRows, resetSnapshotRows, snapshotRowsS
 import { isWarehouseRuntime } from "@/lib/warehouse";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { z } from "zod";
+import { saveCheckpoint, unwrapCheckpoint } from "@/lib/dataset-checkpoints";
+import { coverageError, factDateError, invalidIntervals } from "@/lib/dataset-temporal";
 
 export const MAX_BACKUP_BYTES = 25 * 1024 * 1024;
 export const RESTORE_CONFIRMATION = "REPLACE_LOCAL_DATASET";
@@ -70,8 +72,12 @@ const backupSchema = z.object({
 export type DatasetBackup = z.infer<typeof backupSchema>;
 
 export class DatasetBackupError extends Error {}
+export class DatasetConflictError extends Error {
+  constructor(public code: "revision_conflict" | "pending_capture", public revision: number) { super(code === "pending_capture" ? "This revision has uncaptured changes. Confirm discarding this exact revision after creating its checkpoint." : "Dataset changed in another operation. Review the current revision again."); }
+}
 
 export function parseDatasetBackup(value: unknown): DatasetBackup {
+  value = unwrapCheckpoint(value);
   const result = backupSchema.safeParse(value);
   if (!result.success) {
     throw new DatasetBackupError(result.error.issues.slice(0, 5).map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("; ").slice(0, 1000));
@@ -81,8 +87,8 @@ export function parseDatasetBackup(value: unknown): DatasetBackup {
   if (backup.attributeHistory) {
     try {
       if (!backup.metadata?.sourceId && (backup.attributeHistory.customers.length || backup.attributeHistory.plans.length)) throw new Error("SCD2 needs a source identity");
-      validateSnapshotRows(backup.attributeHistory.customers, backup.metadata?.sourceId ?? "");
-      validateSnapshotRows(backup.attributeHistory.plans, backup.metadata?.sourceId ?? "");
+      validateSnapshotRows(backup.attributeHistory.customers, backup.metadata?.sourceId ?? "", "customer");
+      validateSnapshotRows(backup.attributeHistory.plans, backup.metadata?.sourceId ?? "", "plan");
     } catch { throw new DatasetBackupError("Invalid SCD2 history or overlapping versions"); }
   }
   const tables = [backup.customers, backup.plans, backup.subscriptions, backup.invoices, backup.payments, backup.productEvents];
@@ -95,6 +101,22 @@ export function parseDatasetBackup(value: unknown): DatasetBackup {
   const plans = new Map(backup.plans.map((row) => [row.id, row]));
   const subscriptions = new Map(backup.subscriptions.map((row) => [row.id, row]));
   const invoices = new Map(backup.invoices.map((row) => [row.id, row]));
+  const customerRows = new Map(backup.customers.map(row => [row.id, row]));
+  const asOf = backup.metadata?.asOf;
+  if (asOf) {
+    if (asOf > new Date().toISOString()) throw new DatasetBackupError("Observation date cannot be in the future");
+    const invalidCoverage = coverageError(asOf, backup.metadata?.historyStart, backup.metadata?.historyComplete);
+    if (invalidCoverage) throw new DatasetBackupError(invalidCoverage);
+    const check = (date: string | null | undefined, earliest?: string) => { const error = factDateError(date, asOf, earliest); if (error) throw new DatasetBackupError(error); };
+    for (const row of backup.customers) { check(row.createdAt); check(row.convertedAt, row.createdAt); check(row.churnedAt, row.convertedAt ?? row.createdAt); }
+    // Plan creation is a source fact; import/export/SCD2 capture timestamps deliberately are not checked against asOf.
+    for (const row of backup.plans) check(row.createdAt);
+    for (const row of backup.subscriptions) { check(row.startedAt, customerRows.get(row.customerId)?.createdAt); check(row.endedAt, row.startedAt); }
+    for (const row of backup.invoices) { check(row.invoiceDate, customerRows.get(row.customerId)?.createdAt); check(row.failedAt, row.invoiceDate); check(row.paidAt, row.failedAt ?? row.invoiceDate); }
+    for (const row of backup.payments) check(row.processedAt, invoices.get(row.invoiceId)?.invoiceDate);
+    for (const row of backup.productEvents) check(row.timestamp, customerRows.get(row.customerId)?.createdAt);
+  }
+  if (invalidIntervals(backup.subscriptions).length) throw new DatasetBackupError("Subscription intervals must have positive duration and cannot overlap for one customer");
   for (const customer of backup.customers) {
     if ([customer.convertedAt, customer.churnedAt].some((date) => date !== null && date < customer.createdAt)) throw new DatasetBackupError("Customer lifecycle dates precede creation");
   }
@@ -122,28 +144,36 @@ export function isLocalDatasetRequest(request: Request): boolean {
   return ["localhost", "127.0.0.1", "[::1]"].includes(hostname);
 }
 
-export async function exportDatasetBackup(db: PrismaClient): Promise<DatasetBackup> {
-  const snapshot = await db.$transaction(async (tx) => {
+// Raw capture must also preserve a pending/invalid revision. Validation belongs to export/restore, not to the safety checkpoint.
+export async function captureDataset(tx: Prisma.TransactionClient): Promise<unknown> {
     const [metadata, customers, plans, subscriptions, invoices, payments, productEvents] = await Promise.all([
       tx.datasetMetadata.findUnique({ where: { id: "local" } }),
-      tx.customer.findMany({ orderBy: { id: "asc" }, take: 20001 }), tx.plan.findMany({ orderBy: { id: "asc" }, take: 1001 }),
-      tx.subscription.findMany({ orderBy: { id: "asc" }, take: 100001 }), tx.invoice.findMany({ orderBy: { id: "asc" }, take: 100001 }),
-      tx.payment.findMany({ orderBy: { id: "asc" }, take: 100001 }), tx.productEvent.findMany({ orderBy: { id: "asc" }, take: 100001 }),
+      tx.customer.findMany({ orderBy: { id: "asc" } }), tx.plan.findMany({ orderBy: { id: "asc" } }),
+      tx.subscription.findMany({ orderBy: { id: "asc" } }), tx.invoice.findMany({ orderBy: { id: "asc" } }),
+      tx.payment.findMany({ orderBy: { id: "asc" } }), tx.productEvent.findMany({ orderBy: { id: "asc" } }),
     ]);
     const attributeHistory = isWarehouseRuntime() ? { customers: await readSnapshotRows(tx,"customer"), plans: await readSnapshotRows(tx,"plan") } : { customers: [], plans: [] };
-    return { attributeHistory, format: "revlens-dataset", schemaVersion: 2, exportedAt: new Date().toISOString(), metadata, customers, plans, subscriptions, invoices, payments, productEvents };
-  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 60000 });
+    return JSON.parse(JSON.stringify({ attributeHistory, format: "revlens-dataset", schemaVersion: 2, exportedAt: new Date().toISOString(), metadata, customers, plans, subscriptions, invoices, payments, productEvents }, (_, item) => typeof item === "bigint" ? item.toString() : item));
+}
+
+export async function exportDatasetBackup(db: PrismaClient): Promise<DatasetBackup> {
+  const snapshot = await db.$transaction(captureDataset, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 60000 });
   const serialized = JSON.stringify(snapshot, (_, item) => typeof item === "bigint" ? item.toString() : item);
   if (Buffer.byteLength(serialized) > MAX_BACKUP_BYTES - 1024) throw new DatasetBackupError("Backup exceeds the 25 MiB local restore limit");
   return parseDatasetBackup(JSON.parse(serialized));
 }
 
-export async function restoreDatasetBackup(db: PrismaClient, value: unknown): Promise<DatasetBackup> {
+export async function restoreDatasetBackup(db: PrismaClient, value: unknown, options: { expectedRevision: number; discardPendingRevision?: number }): Promise<DatasetBackup & { checkpointId: string }> {
   const backup = parseDatasetBackup(value);
+  let checkpointId = "";
   await db.$transaction(async (tx) => {
     // One replacement at a time, including concurrent import writes; auth tables are never touched.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(20261020, 2)`;
     const current = await tx.datasetMetadata.findUnique({ where: { id: "local" } });
+    const revision = current?.revision ?? 0;
+    if (options.expectedRevision !== revision) throw new DatasetConflictError("revision_conflict", revision);
+    if (current && (current.pipelineStatus !== "ready" || current.analyticsRevision !== revision) && options.discardPendingRevision !== revision) throw new DatasetConflictError("pending_capture", revision);
+    checkpointId = await saveCheckpoint(await captureDataset(tx), revision, "restore");
     if (isWarehouseRuntime()) await resetSnapshotRows(tx);
     await tx.$executeRaw`LOCK TABLE customers, plans, subscriptions, invoices, payments, product_events IN SHARE ROW EXCLUSIVE MODE`;
     await tx.payment.deleteMany();
@@ -176,5 +206,5 @@ export async function restoreDatasetBackup(db: PrismaClient, value: unknown): Pr
     // Explicit IDs must not collide with the next generated event ID after restore.
     await tx.$queryRaw`SELECT setval(pg_get_serial_sequence('product_events', 'id'), COALESCE((SELECT MAX(id) FROM product_events), 0) + 1, false)`;
   }, { timeout: 60000 });
-  return backup;
+  return { ...backup, checkpointId };
 }

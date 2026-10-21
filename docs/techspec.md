@@ -18,7 +18,7 @@ pnpm build
 pnpm start --hostname 127.0.0.1 --port 3101
 ```
 
-Raw import and capture are durable separate stages. A crash after save retains raw records. Revision guards prevent stale reads and another replacement. Restart Python and retry in Data workspace; inspect private dbt-last.log for SQL failures. Identical retries do not fabricate versions. Model failures remain explicit.
+Raw import and capture are durable separate stages. A crash after save retains raw records. Revision guards prevent stale reads and ordinary same-source updates while capture is unresolved. Restore requires expectedRevision and, for pending/failed data, an exact discardPendingRevision confirmation. New-source confirmation is bound to the preview revision. Set REV_ANALYTICS_RUNTIME to an absolute private directory outside the repository: replacement/restore fail closed when checkpoints cannot be durably written. Checkpoints are retained in its checkpoints/ directory and contain no authentication data. Restart Python and retry in Data workspace; inspect private dbt-last.log for SQL failures. Identical retries do not fabricate versions. Model failures remain explicit.
 
 CI provisions temporary PostgreSQL, runs unit/database checks, regenerates fictional exports, builds Next.js and Vite and publishes static files only after main passes. No credentials or raw UCI workbook are public.
 

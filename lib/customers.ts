@@ -2,7 +2,7 @@ import { getAttributeHistory, type AttributeVersion } from "@/lib/attribute-hist
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
-import { getAsOf, isActiveAt } from "@/lib/dataset";
+import { getAsOf, getDatasetContext, isActiveAt } from "@/lib/dataset";
 import { filterCustomerList } from "@/lib/customer-filter";
 
 export type CustomerListItem = {
@@ -73,6 +73,9 @@ export type CustomerRevenueLifecycle = {
 
 export type CustomerDetail = {
   attributeHistory: AttributeVersion[];
+  attributeHistoryStatus: "ready" | "pending" | "unavailable";
+  revision: number;
+  analyticsRevision: number;
   asOf: string;
   id: string;
   name: string;
@@ -250,8 +253,10 @@ export async function getCustomersList(options: {
 }
 
 export async function getCustomerDetail(customerId: string): Promise<CustomerDetail | null> {
-  const asOf = await getAsOf();
-  const customer = await prisma.customer.findUnique({
+  return prisma.$transaction(async tx => {
+  const metadata = await tx.datasetMetadata.findUnique({ where: { id: "local" } });
+  const asOf = (await getDatasetContext(tx)).asOf;
+  const customer = await tx.customer.findUnique({
     where: { id: customerId },
     include: {
       subscriptions: { where: { startedAt: { lte: asOf } }, include: { plan: true }, orderBy: { startedAt: "asc" } },
@@ -313,9 +318,13 @@ export async function getCustomerDetail(customerId: string): Promise<CustomerDet
     lastEventAt: customer.productEvents[0]?.timestamp.toISOString() ?? null,
   };
 
-  const versions = await Promise.all([getAttributeHistory("customer",customerId), ...[...new Set(customer.subscriptions.map(subscription=>subscription.planId))].map(id=>getAttributeHistory("plan",id))]);
+  const attributeHistoryStatus = !metadata ? "unavailable" : metadata.pipelineStatus === "ready" && metadata.revision === metadata.analyticsRevision ? "ready" : "pending";
+  const versions = attributeHistoryStatus === "ready" && metadata ? await Promise.all([getAttributeHistory(tx, metadata.sourceId, "customer",customerId), ...[...new Set(customer.subscriptions.map(subscription=>subscription.planId))].map(id=>getAttributeHistory(tx, metadata.sourceId, "plan",id))]) : [];
   return {
     attributeHistory: versions.flat(),
+    attributeHistoryStatus,
+    revision: metadata?.revision ?? 0,
+    analyticsRevision: metadata?.analyticsRevision ?? -1,
     asOf: asOf.toISOString(),
     id: customer.id,
     name: customer.name,
@@ -338,6 +347,7 @@ export async function getCustomerDetail(customerId: string): Promise<CustomerDet
     paymentSummary,
     usageSummary,
   };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 30000 });
 }
 
 export async function getCustomerRevenueHistory(customerId: string): Promise<CustomerRevenueLifecycle | null> {

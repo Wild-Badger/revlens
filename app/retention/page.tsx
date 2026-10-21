@@ -210,7 +210,7 @@ export default function RetentionPage() {
       {/* Logo Retention Cohort Table */}
       <div className="space-y-2">
         <h2 className="text-lg font-semibold text-neutral-100">Customer retention cohorts</h2>
-        <div className="overflow-x-auto rounded-lg border border-neutral-800">
+        <div className="overflow-x-auto rounded-lg border border-neutral-800" tabIndex={0} role="region" aria-label="Monthly retention cohort table, scroll horizontally to all observed months">
           {loading ? (
             <div className="p-8 text-center text-sm text-neutral-500">
               Loading cohort data...
@@ -229,7 +229,7 @@ export default function RetentionPage() {
                   <th className="px-3 py-2 text-right font-medium text-neutral-400">
                     Size
                   </th>
-                  {Array.from({ length: Math.min(logoData.maxMonths + 1, 12) }, (_, i) => (
+                  {Array.from({ length: logoData.maxMonths + 1 }, (_, i) => (
                     <th key={i} className="px-2 py-2 text-center font-medium text-neutral-400">
                       M{i}
                     </th>
@@ -239,13 +239,13 @@ export default function RetentionPage() {
               <tbody>
                 {logoData.rows.map((row) => (
                   <tr key={row.cohort} className="border-b border-neutral-800/50 hover:bg-neutral-900/40">
-                    <td className="sticky left-0 z-10 bg-neutral-950 px-4 py-2 font-medium text-neutral-200">
+                    <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-neutral-950 px-4 py-2 text-left font-medium text-neutral-200">
                       {formatMonth(row.cohort)}
-                    </td>
+                    </th>
                     <td className="px-3 py-2 text-right text-neutral-400">
                       {row.cohortSize}
                     </td>
-                    {row.retention.slice(0, 12).map((rate, idx) => (
+                    {row.retention.map((rate, idx) => (
                       <td key={idx} className="px-1 py-1">
                         <div
                           className={cn(
@@ -268,7 +268,7 @@ export default function RetentionPage() {
       {/* Revenue Retention Cohort Table */}
       <div className="space-y-2">
         <h2 className="text-lg font-semibold text-neutral-100">Revenue Retention Cohorts</h2>
-        <div className="overflow-x-auto rounded-lg border border-neutral-800">
+        <div className="overflow-x-auto rounded-lg border border-neutral-800" tabIndex={0} role="region" aria-label="Monthly retention cohort table, scroll horizontally to all observed months">
           {loading ? (
             <div className="p-8 text-center text-sm text-neutral-500">
               Loading revenue cohort data...
@@ -287,7 +287,7 @@ export default function RetentionPage() {
                   <th className="px-3 py-2 text-right font-medium text-neutral-400">
                     Initial MRR
                   </th>
-                  {Array.from({ length: Math.min(revenueData.maxMonths + 1, 12) }, (_, i) => (
+                  {Array.from({ length: revenueData.maxMonths + 1 }, (_, i) => (
                     <th key={i} className="px-2 py-2 text-center font-medium text-neutral-400">
                       M{i}
                     </th>
@@ -297,13 +297,13 @@ export default function RetentionPage() {
               <tbody>
                 {revenueData.rows.map((row) => (
                   <tr key={row.cohort} className="border-b border-neutral-800/50 hover:bg-neutral-900/40">
-                    <td className="sticky left-0 z-10 bg-neutral-950 px-4 py-2 font-medium text-neutral-200">
+                    <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-neutral-950 px-4 py-2 text-left font-medium text-neutral-200">
                       {formatMonth(row.cohort)}
-                    </td>
+                    </th>
                     <td className="px-3 py-2 text-right text-neutral-400">
                       {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(row.cohortSize)}
                     </td>
-                    {row.retention.slice(0, 12).map((rate, idx) => (
+                    {row.retention.map((rate, idx) => (
                       <td key={idx} className="px-1 py-1">
                         <div
                           className={cn(
