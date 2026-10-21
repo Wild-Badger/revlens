@@ -1,58 +1,49 @@
-# Predictive release verification â€” October 21, 2026
+# Finalization verification - 21 October 2026
 
-Checks used isolated fictional databases, never private business records or billing credentials.
+Implementation revision: `46316c469ad1da51932a19778164e04e0c05187e`. Presentation-only files follow in the release commit. Checks used disposable fictional databases and a fresh owner workspace outside the repository; the user's existing owner database and credentials were not inspected.
 
-The [final Linux CI and publication run](https://github.com/Wild-Badger/revlens/actions/runs/39524468229) passed for code revision `8a57af3`. Pages build `9185550aac7dc55d66ae135b91e18b5443013cf5` completed successfully. The connected Chrome extension verified the public HTTPS forecast: 48 months, selected damped-trend ETS, MAE $339.68 against $386.02 baseline, with no browser console errors. Final documentation-only changes do not rebuild an unchanged static application.
+## Executed locally
 
-| Check | Observed result | Scope |
+| Command / check | Observed result | Evidence and limits |
 | --- | --- | --- |
-| Locked installs | Passed | pnpm standalone install; uv Python 3.12 environment |
-| TypeScript/Vitest | 176 tests passed in 22 files | Money/date boundaries, cohorts, import/backup, auth/origin guards and static forecast adapter; six obsolete regression-forecast checks retired with their unused implementation |
-| Python unit checks | 5 passed | Temporal leakage, history validation, constant/zero series, candidate failures, deterministic engine and private API auth |
-| Python/PostgreSQL integration | Passed | Actual dbt build, raw/monthly reconciliation across 48 months, repeated/changed/deleted/reappearing customer and plan snapshots, failed-process retry |
-| Node/PostgreSQL integration | 9 checks passed | Pending barrier, unavailable service recovery, idempotence, changed attributes, v2 full restore, v1 unknown history, real database-error rollback, new-source isolation and stable catalog identity |
-| ESLint | 0 errors, 18 existing unused-symbol warnings | Application and test sources |
-| Next.js production build | Passed | Local environment; all 45 pages/routes generated; webpack supports linked standalone dependencies |
-| Static build/export | Passed | 60 fictional customers, 191 intervals, 24 scopes; raw movements reconcile to MRR $16,277.88 |
-| Live Python HTTP | Passed | Loopback health and authenticated report with 48 months and 3 predictions |
-| Launcher | Prerequisite and direct-Python service checks passed | Actual authenticated HTTP refresh works from the launcher-style Python process; PostgreSQL refresh also passed with an empty PATH. Full owner-workspace launch was not rerun against user records |
-| Chrome extension | Checked | Statistical chart/tables, held-out errors, SCD2 current/superseded states, themes, keyboard tabs and reload persistence |
-| Mobile viewport | Checked at 390 Ã— 844 | Forecast readable, no page-level horizontal overflow; wide exact-value tables scroll locally |
-| Presentation | Rendered and inspected | Three-page PDF from structured copy/reports; ZIP contains only current media and copy |
+| `pnpm test --maxWorkers=2` | 186 passed, 24 files | Includes all-month cohort rendering, visible unfavorable horizon comparison, pending history, checkpoint validation, owner guards and offline-service guidance |
+| `pnpm exec tsc --noEmit` | Passed after correcting the new test's Testing Library option | Also checked by the production Next build |
+| `pnpm lint` | Passed: 0 errors, 18 pre-existing unused-symbol warnings | No warning threshold was relaxed |
+| `python -m pytest -q` with `REV_TEST_DATABASE_URL` | 15 passed | Python 3.12.9; real PostgreSQL 17, raw/dbt MRR reconciliation, changed/removed/reappearing customers AND plans, actual process-tree interruption and idempotent retry; one upstream FastAPI/httpx deprecation warning |
+| `pnpm exec tsx scripts/verify-predictive.ts` | 13 checks passed | Genuine two-connection advisory-lock contention and stale revision rejection; real checkpoint write failure; full business-table and every native SCD2-attribute v2 round-trip; pending discard; later checkpoint restore; legacy v1; transaction rollback; stable plan identity |
+| `python scripts/verify-artifacts.py` | All five reports passed | Required names, input hashes, dates, finite values, counts, ordered/nested intervals, recalculated held-out MAE/WAPE/coverage; existing 1% MAE and 0.01% point tolerances retained, including rounding floors |
+| Artifact corruption regression checks | Passed in Python suite | Reject MAE multiplied by 1,000, lower bound above point forecast, wrong WAPE/count, missing reports and nonfinite values |
+| `pnpm demo:export` and `pnpm exec tsx scripts/verify-demo.ts` | Passed | 60 fictional customers, 191 intervals, 24 scopes, MRR USD 16,277.88; monthly movements reconcile |
+| `pnpm demo:build` | Passed | Existing Vite >500 kB chunk warning remains; no budget was increased |
+| `scripts/start-local.ps1 -Mode Check` and full launcher | Passed in an isolated runtime | Fresh cluster, locked Python install, migrations, Next production build and loopback Python/Next startup. Ports 3131/55441/8131 were isolated test overrides; default instructions remain 3101/55433/8101 |
+| Final production Next build | Passed | Data workspace is dynamic; client pages consume authenticated runtime APIs |
+| `scripts/build-case.py` | Four pages; PDF below 25 MB | Structured source + actual reports; six 1600 x 1200 images; clickable links; ZIP contents/hash comparison; all pages rendered and visually inspected |
 
-## Reproduce the database checks
+The verification copy was compared byte-for-byte after newline normalization against the implementation files. It reused isolated dependencies to avoid working against an owner dataset. No test count is hardcoded in the presentation generator.
 
-Configure a dedicated local PostgreSQL database named `revlens_demo`, with private connection settings in the environment. Do not seed a personal dataset. The fixture scripts reject unrelated populated databases. Install locked dependencies and deploy migrations first:
+## Connected Chrome flow
 
-```sh
-uv sync --frozen --all-groups --python 3.12
-pnpm exec prisma generate
-pnpm db:deploy
-uv run python -m analytics.cli seed
-uv run python -m analytics.cli demo-history
-uv run python -m analytics.cli export-report
-uv run --group benchmark python -m analytics.cli benchmark
-```
+Used the existing Chrome extension and a fresh disposable local owner, with no alternative account session.
 
-For static export set `DEMO_MODE=true`, `DEMO_AS_OF=2026-09-30T23:59:59.999Z` and `REV_ANALYTICS_ENABLED=true` in that shell, then run:
+1. Uploaded the intentionally invalid 191-row CSV. Preview rejected a zero-length interval and future/incoherent customer facts; import was unavailable and revision remained 0.
+2. Uploaded the valid CSV, confirmed complete coverage from October 2022, reviewed revision 0, 60 customers / 191 intervals and USD 16,277.88 MRR, then committed. Real dbt and forecast completed.
+3. Viewed the 48-month prediction, selected ETS method, horizon MAE/baseline and 6/5/4 test counts. Exported prediction and scenario JSON. Keyboard scenario controls changed the manual assumption independently.
+4. Downloaded a v2 backup. Stopped only the disposable Python listener. Restore saved a checkpoint, preserved records and returned explicitly restored / analytics pending.
+5. Attempting another restore of pending revision 3 required its exact discard confirmation. Downloaded its checkpoint and independently verified checksum, pending status, all 60 customers and 191 intervals.
+6. Customer detail remained accessible at pending revision 4 and hid earlier versions under Attribute capture pending.
+7. Restored the downloaded checkpoint itself, with another exact revision confirmation, producing revision 5. A temporarily unavailable dbt executable in the disposable runtime exercised failed startup and retry; the executable was restored. The Chrome Retry analytics refresh action recovered the real pipeline and prediction. A new tab in the SAME Chrome session confirmed revision 5 ready and the original evaluated values, without console errors.
+8. Inspected desktop and 390 px mobile layouts, light and dark themes, menu navigation, keyboard tabs/sliders, scrollable horizon comparisons and cohorts through M47. Both cohort tables have 50 columns (identity + size + 48 months); first-column labels are sticky. Mobile document width and scroll width both measured 375 CSS px after the browser's scrollbar, so no page-level horizontal overflow was observed.
 
-```sh
-pnpm demo:export
-pnpm exec tsx scripts/verify-demo.ts
-pnpm demo:build
-```
+The earlier upload Failed to fetch did not reproduce: both files uploaded and parsed in connected Chrome. Its original transient cause cannot be established retrospectively. A separate offline-Python fetch failure was reproduced and now yields actionable recovery guidance. A stale tab-control timeout was resolved by opening a fresh tab in the same connected Chrome, preserving the session.
 
-For destructive fixture checks, create and migrate a separate database ending in `_test`. Set `REV_TEST_DATABASE_URL` to it for Python, then set `DATABASE_URL` to it for Node. Node checks also require `LOCAL_WORKSPACE_MODE=true`, `REV_ANALYTICS_ENABLED=true`, `DEMO_MODE=false` and an isolated `REV_ANALYTICS_RUNTIME` folder:
+## Presentation and release
 
-```sh
-uv run python -m pytest analytics/tests/test_pipeline.py -q
-pnpm exec tsx scripts/verify-predictive.ts
-```
+The English first page names the input, deliverables, insufficient-history path and limitations. Horizon 1's unfavorable result, pooled scores, retail distinction, counts and coverage derive from the reports. Capture notes distinguish public artifacts from local fictional test revisions. Six current images replace the old screenshot set. The package contains no personal contact details or private-project references.
 
-CI contains the complete runnable environment setup with temporary PostgreSQL. The normal Python command intentionally skips the destructive integration check when no explicit test URL is supplied. `scripts/build-case.py` requires reportlab and pypdfium2 in a presentation-only environment; these are not production analytics dependencies.
+The public repository and Pages release use the normal main CI workflow. Publication is allowed only after its checks pass; record the final run below. No history rewrite, Docker/scaffold additions or Upwork action is included.
 
-CI regenerates reports and checks input hashes, selected methods and bounded numerical variation with `scripts/verify-artifacts.py`, then retains the checked-in release JSON for the static build. Windows/Linux ETS optimizer results differed slightly (demo pooled MAE 339.68/340.09); the tolerance and release-artifact policy are recorded in the evaluation report. This keeps the public interface, README and case consistent without claiming bit-identical floating-point fits across platforms.
+Upwork metadata limits were checked against [official guidance](https://support.upwork.com/hc/en-us/articles/360016144974-How-to-enhance-your-freelancer-profile): title <=70, role <=100, description <=600, at most five tags. Suggested tags remain subject to the account's catalog when the owner authorizes a future upload. The local package is not an Upwork draft.
 
 ## Limits
 
-Tests establish implementation behavior, not adoption, accounting coverage for every billing model, production security certification or real SaaS forecast accuracy. Chrome checks used emulated viewport sizes, not real mobile hardware or a screen reader. The public static mode cannot import private records. Live CRM integrations, queue workers and delivered alerts were not verified and are not claimed. Full launcher execution against an existing owner dataset was deliberately avoided; the isolated service, PostgreSQL flow and both builds were exercised separately.
+These checks do not demonstrate real-SaaS accuracy, financial impact, customer adoption, security certification, screen-reader compliance or physical mobile-device behavior. Dataset completeness still requires a source-owner declaration. Checkpoints are unencrypted local files, retained until manual archival; the launcher restricts the runtime to the local Windows user. Windows supports file fsync but not the directory fsync used on Unix.
