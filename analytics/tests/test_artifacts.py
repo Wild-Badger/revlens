@@ -19,6 +19,14 @@ def test_report_contract_and_mae_magnitude(name):
     with pytest.raises(AssertionError): checker['validate_report'](bad)
     with pytest.raises(AssertionError): checker['compare_release'](bad, report)
     bad = copy.deepcopy(report)
+    bad['validation']['candidates'][2]['byHorizon'][2]['mae'] *= 1000
+    with pytest.raises(AssertionError): checker['validate_report'](bad)
+    bad = copy.deepcopy(report)
+    candidate = bad['validation']['candidates'][2]
+    candidate['mae'] *= 1000
+    for horizon in candidate['byHorizon']: horizon['mae'] *= 1000
+    with pytest.raises(AssertionError): checker['compare_release'](bad, report)
+    bad = copy.deepcopy(report)
     bad['forecast'][0]['lower95'] = bad['forecast'][0]['predicted'] + 1
     with pytest.raises(AssertionError): checker['validate_report'](bad)
 

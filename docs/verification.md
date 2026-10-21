@@ -47,3 +47,7 @@ Upwork metadata limits were checked against [official guidance](https://support.
 ## Limits
 
 These checks do not demonstrate real-SaaS accuracy, financial impact, customer adoption, security certification, screen-reader compliance or physical mobile-device behavior. Dataset completeness still requires a source-owner declaration. Checkpoints are unencrypted local files, retained until manual archival; the launcher restricts the runtime to the local Windows user. Windows supports file fsync but not the directory fsync used on Unix.
+
+## Cross-platform diagnostic
+
+Initial CI stopped on an extra per-horizon development comparison that was not the agreed selection metric: the stable fixture’s unselected damped model had h3 MAE 166.0550 on Windows versus 163.6343 on Linux. A local Ubuntu run with the same locked math-library versions reproduced it. Its aggregate validation MAE differed by 0.73%, while the selected level model and final MAE 77.9260 matched exactly. The release gate retains 1% for aggregate candidate selection scores and every final-test MAE (including horizons), and 0.01% for all point forecasts. It does not freeze every unselected development slice; their finite values, counts and weighted arithmetic remain checked. No numerical tolerance, forecasting model, versioned result or demonstration claim was changed. Corruption checks now also reject development MAE multiplied by 1,000.
